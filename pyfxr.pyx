@@ -69,6 +69,20 @@ cdef class Waveform:
                 w.waveform[i] = samp(i / 512.0 - 1.0)
         return w
 
+    @staticmethod
+    def square():
+        """Generate a square-wave waveform."""
+        cdef Waveform w
+        cdef size_t i
+        cdef float v
+        w = Waveform.__new__(Waveform)
+        with nogil:
+            for i in range(512):
+                w.waveform[i] = -32768
+            for i in range(512, 1024):
+                w.waveform[i] = 32767
+        return w
+
     def __getbuffer__(self, Py_buffer *buffer, int flags):
         cdef Py_ssize_t itemsize = sizeof(int16_t)
 
@@ -100,6 +114,19 @@ cdef class Tone:
 
     def __dealloc__(self):
         PyMem_Free(self.samples)
+
+    def __len__(self):
+        return self.n_samples
+
+    def __getitem__(self, ssize_t i):
+        if i >= 0:
+            if i >= self.n_samples:
+                raise IndexError("index out of range")
+        else:
+            i = self.n_samples + i
+            if i < 0:
+                raise IndexError("index out of range")
+        return self.samples[i]
 
     @property
     def duration(Tone self):
