@@ -1,0 +1,8 @@
+*.pyc
+*.swp
+/wasabigeom.html
+/wasabigeom.c
+/build/
+/dist/
+/venv/
+/doc/_build/
