@@ -8,8 +8,9 @@ setup(
     install_requires=[
         "pygame>=2.0.1",
     ],
+    py_modules=['pyfxr'],
     ext_modules=cythonize(
-        "pyfxr.pyx",
+        "_pyfxr.pyx",
         compiler_directives={'embedsignature': True}
     ),
     zip_safe=False,

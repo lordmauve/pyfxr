@@ -132,8 +132,20 @@ cdef class SoundBuffer:
         return self.samples[i]
 
     @property
-    def duration(SoundBuffer self):
+    def duration(SoundBuffer self) -> float:
+        """Get the duration of this sound in seconds."""
         return self.n_samples / <float> SAMPLE_RATE
+
+    def save(self, filename: str):
+        """Save this sound to a .wav file."""
+        import wave
+
+        with wave.open(filename, 'wb') as wav:
+            wav.setframerate(SAMPLE_RATE)
+            wav.setnchannels(1)
+            wav.setnframes(self.n_samples)
+            wav.setsampwidth(2)
+            wav.writeframesraw(self)
 
     def __getbuffer__(self, Py_buffer *buffer, int flags):
         cdef Py_ssize_t itemsize = sizeof(int16_t)
@@ -260,30 +272,30 @@ cdef frnd(float range_):
 
 
 def sfx(
-    int wave_type,
-    float p_base_freq,
-    float p_freq_limit,
-    float p_freq_ramp,
-    float p_freq_dramp,
-    float p_duty,
-    float p_duty_ramp,
-    float p_vib_strength,
-    float p_vib_speed,
-    float p_vib_delay,
-    float p_env_attack,
-    float p_env_sustain,
-    float p_env_decay,
-    float p_env_punch,
-    float p_lpf_resonance,
-    float p_lpf_freq,
-    float p_lpf_ramp,
-    float p_hpf_freq,
-    float p_hpf_ramp,
-    float p_pha_offset,
-    float p_pha_ramp,
-    float p_repeat_speed,
-    float p_arp_speed,
-    float p_arp_mod,
+    int wave_type=0,
+    float p_base_freq=0.3,
+    float p_freq_limit=0.0,
+    float p_freq_ramp=0.0,
+    float p_freq_dramp=0.0,
+    float p_duty=0.0,
+    float p_duty_ramp=0.0,
+    float p_vib_strength=0.0,
+    float p_vib_speed=0.0,
+    float p_vib_delay=0.0,
+    float p_env_attack=0.0,
+    float p_env_sustain=0.3,
+    float p_env_decay=0.4,
+    float p_env_punch=0.0,
+    float p_lpf_resonance=0.0,
+    float p_lpf_freq=1.0,
+    float p_lpf_ramp=0.0,
+    float p_hpf_freq=0.0,
+    float p_hpf_ramp=0.0,
+    float p_pha_offset=0.0,
+    float p_pha_ramp=0.0,
+    float p_repeat_speed=0.0,
+    float p_arp_speed=0.0,
+    float p_arp_mod=0.0,
 ):
     cdef int phase=0, period, env_stage, env_time, iphase, ipp
     cdef double fperiod, fmaxperiod, fslide, fdslide, arp_mod
