@@ -2,8 +2,9 @@
 
 from libc.stdint cimport int16_t, uint32_t
 from libc.math cimport sin, pi, floor
-from libc.stdlib cimport rand
+from libc.stdlib cimport rand, abs
 
+cimport cython
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 
 
@@ -214,7 +215,11 @@ def tone(
     return t
 
 
-cdef reset_sample(
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef void reset_sample(
     float p_base_freq,
     float p_freq_limit,
     float p_freq_ramp,
@@ -233,7 +238,7 @@ cdef reset_sample(
     double *arp_mod,
     int *arp_time,
     int *arp_limit
-):
+) nogil:
     fperiod[0] = 100.0 / (p_base_freq * p_base_freq + 0.001)
     period[0] = <int> fperiod[0]
     fmaxperiod[0] = 100.0 / (p_freq_limit * p_freq_limit + 0.001)
@@ -254,7 +259,7 @@ cdef reset_sample(
 from cython cimport floating
 
 
-cdef clamp(floating *v, floating min, floating max):
+cdef void clamp(floating *v, floating min, floating max) nogil:
     """Clamp the given value v to between min and max."""
     if v[0] < min:
         v[0] = min
@@ -262,15 +267,21 @@ cdef clamp(floating *v, floating min, floating max):
         v[0] = max
 
 
-cdef fill_noise(float *noise_buffer):
+@cython.boundscheck(False)
+cdef void fill_noise(float *noise_buffer) nogil:
     for i in range(32):
-        noise_buffer[i] = frnd(2.0) - 1.0;
+        noise_buffer[i] = frnd(2.0) - 1.0
 
 
-cdef frnd(float range_):
+@cython.cdivision(True)
+cdef float frnd(float range_) nogil:
     return <float> (rand() % 10001) / 10000 * range_
 
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
 def sfx(
     int wave_type=0,
     float p_base_freq=0.3,
@@ -357,149 +368,150 @@ def sfx(
     cdef size_t n_samples = env_length[0] + env_length[1] + env_length[2];
     cdef SoundBuffer s = SoundBuffer(n_samples)
 
-    fphase = p_pha_offset ** 2.0 * 1020.0;
-    if p_pha_offset < 0.0:
-        fphase = -fphase
-    fdphase = p_pha_ramp ** 2.0
-    if p_pha_ramp < 0.0:
-        fdphase = -fdphase
-    iphase = abs(<int> fphase)
-    ipp = 0
-    for i in range(1024):
-        phaser_buffer[i] = 0.0
-
-    # Fill noise buffer
-    fill_noise(noise_buffer)
-
-    # reset repeats
-    rep_time = 0
-    rep_limit = <int> ((1.0 - p_repeat_speed) ** 2.0) * 20000 + 32
-    if p_repeat_speed == 0.0:
-        rep_limit = 0
-
-    for i in range(n_samples):
-        rep_time += 1
-
-        if rep_limit and rep_time >= rep_limit:
-            rep_time = 0
-            reset_sample(
-                p_base_freq,
-                p_freq_limit,
-                p_freq_ramp,
-                p_freq_dramp,
-                p_duty,
-                p_duty_ramp,
-                p_arp_mod,
-                p_arp_speed,
-
-                &fperiod,
-                &period,
-                &fmaxperiod,
-                &fslide,
-                &fdslide,
-                &square_duty,
-                &square_slide,
-                &arp_mod,
-                &arp_time,
-                &arp_limit
-            )
-
-        # frequency envelopes/arpeggios
-        arp_time += 1
-        if 0 != arp_limit < arp_time:
-            arp_limit=0
-            fperiod *= arp_mod
-
-        fslide += fdslide
-        fperiod *= fslide
-        if fperiod > fmaxperiod:
-            fperiod = fmaxperiod
-            if p_freq_limit > 0.0:
-                break
-
-        rfperiod = fperiod
-        if vib_amp > 0.0:
-            vib_phase += vib_speed
-            rfperiod = fperiod * (1.0 + sin(vib_phase) * vib_amp)
-
-        period = <int> rfperiod
-        if period < 8:
-            period = 8
-        square_duty += square_slide
-        clamp(&square_duty, 0.0, 0.5)
-
-        # volume envelope
-        env_time += 1
-        if env_time > env_length[env_stage]:
-            env_time = 0
-            env_stage += 1
-            if env_stage == 3:
-                break
-
-        if env_stage == 0:
-            env_vol = <float> env_time / env_length[0]
-        elif env_stage == 1:
-            # TODO: what's this pow doing?
-            env_vol = 1.0 + pow(1.0 - <float> env_time / env_length[1], 1.0) * 2.0 * p_env_punch
-        elif env_stage == 2:
-            env_vol = 1.0 - <float> env_time / env_length[2]
-
-        # phaser step
-        fphase += fdphase;
+    with nogil:
+        fphase = p_pha_offset ** 2.0 * 1020.0;
+        if p_pha_offset < 0.0:
+            fphase = -fphase
+        fdphase = p_pha_ramp ** 2.0
+        if p_pha_ramp < 0.0:
+            fdphase = -fdphase
         iphase = abs(<int> fphase)
-        if iphase > 1023:
-            iphase = 1023
+        ipp = 0
+        for i in range(1024):
+            phaser_buffer[i] = 0.0
 
-        if flthp_d != 0.0:
-            flthp *= flthp_d
-            clamp(&flthp, 0.00001, 0.1)
+        # Fill noise buffer
+        fill_noise(noise_buffer)
 
-        ssample = 0.0
-        for si in range(8):  # 8x supersampling
-            sample = 0.0
-            phase += 1
-            if phase >= period:
-                phase %= period
-                if wave_type == 3:
-                    fill_noise(noise_buffer)
+        # reset repeats
+        rep_time = 0
+        rep_limit = <int> ((1.0 - p_repeat_speed) ** 2.0) * 20000 + 32
+        if p_repeat_speed == 0.0:
+            rep_limit = 0
 
-            # base waveform
-            fp = <float> phase / period;
-            if wave_type == 0:  # square
-                sample = 0.5 if fp < square_duty else -0.5
-            elif wave_type == 1:  # sawtooth
-                sample = 1.0 - fp * 2
-            elif wave_type == 2:  # sine
-                sample = <float> sin(fp * 2 * pi);
-            elif wave_type == 3:  # noise
-                sample = noise_buffer[<size_t> (phase * 32 / period)]
+        for i in range(n_samples):
+            rep_time += 1
 
-            # lp filter
-            pp = fltp
-            fltw *= fltw_d
-            clamp(&fltw, 0.0, 0.1)
-            if p_lpf_freq != 1.0:
-                fltdp += (sample - fltp) * fltw;
-                fltdp -= fltdp * fltdmp;
-                fltp += fltdp
-            else:
-                fltp = sample
-                fltdp = 0.0
+            if rep_limit and rep_time >= rep_limit:
+                rep_time = 0
+                reset_sample(
+                    p_base_freq,
+                    p_freq_limit,
+                    p_freq_ramp,
+                    p_freq_dramp,
+                    p_duty,
+                    p_duty_ramp,
+                    p_arp_mod,
+                    p_arp_speed,
 
-            # hp filter
-            fltphp += fltp - pp;
-            fltphp -= fltphp * flthp;
-            sample = fltphp;
+                    &fperiod,
+                    &period,
+                    &fmaxperiod,
+                    &fslide,
+                    &fdslide,
+                    &square_duty,
+                    &square_slide,
+                    &arp_mod,
+                    &arp_time,
+                    &arp_limit
+                )
 
-            # phaser
-            phaser_buffer[ipp & 1023] = sample
-            sample += phaser_buffer[(ipp - iphase + 1024) & 1023]
-            ipp = (ipp + 1) & 1023
+            # frequency envelopes/arpeggios
+            arp_time += 1
+            if 0 != arp_limit < arp_time:
+                arp_limit=0
+                fperiod *= arp_mod
 
-            # final accumulation and envelope application
-            ssample += sample * env_vol
+            fslide += fdslide
+            fperiod *= fslide
+            if fperiod > fmaxperiod:
+                fperiod = fmaxperiod
+                if p_freq_limit > 0.0:
+                    break
 
-        ssample /= 8
-        clamp(&ssample, -1.0, 1.0)
-        s.samples[i] = samp(ssample)
+            rfperiod = fperiod
+            if vib_amp > 0.0:
+                vib_phase += vib_speed
+                rfperiod = fperiod * (1.0 + sin(vib_phase) * vib_amp)
+
+            period = <int> rfperiod
+            if period < 8:
+                period = 8
+            square_duty += square_slide
+            clamp(&square_duty, 0.0, 0.5)
+
+            # volume envelope
+            env_time += 1
+            if env_time > env_length[env_stage]:
+                env_time = 0
+                env_stage += 1
+                if env_stage == 3:
+                    break
+
+            if env_stage == 0:
+                env_vol = <float> env_time / env_length[0]
+            elif env_stage == 1:
+                # TODO: what's this pow doing?
+                env_vol = 1.0 + (1.0 - <float> env_time / env_length[1]) * 2.0 * p_env_punch
+            elif env_stage == 2:
+                env_vol = 1.0 - <float> env_time / env_length[2]
+
+            # phaser step
+            fphase += fdphase;
+            iphase = abs(<int> fphase)
+            if iphase > 1023:
+                iphase = 1023
+
+            if flthp_d != 0.0:
+                flthp *= flthp_d
+                clamp(&flthp, 0.00001, 0.1)
+
+            ssample = 0.0
+            for si in range(8):  # 8x supersampling
+                sample = 0.0
+                phase += 1
+                if phase >= period:
+                    phase %= period
+                    if wave_type == 3:
+                        fill_noise(noise_buffer)
+
+                # base waveform
+                fp = <float> phase / period;
+                if wave_type == 0:  # square
+                    sample = 0.5 if fp < square_duty else -0.5
+                elif wave_type == 1:  # sawtooth
+                    sample = 1.0 - fp * 2
+                elif wave_type == 2:  # sine
+                    sample = <float> sin(fp * 2 * pi);
+                elif wave_type == 3:  # noise
+                    sample = noise_buffer[<size_t> (phase * 32 / period)]
+
+                # lp filter
+                pp = fltp
+                fltw *= fltw_d
+                clamp(&fltw, 0.0, 0.1)
+                if p_lpf_freq != 1.0:
+                    fltdp += (sample - fltp) * fltw;
+                    fltdp -= fltdp * fltdmp;
+                    fltp += fltdp
+                else:
+                    fltp = sample
+                    fltdp = 0.0
+
+                # hp filter
+                fltphp += fltp - pp;
+                fltphp -= fltphp * flthp;
+                sample = fltphp;
+
+                # phaser
+                phaser_buffer[ipp & 1023] = sample
+                sample += phaser_buffer[(ipp - iphase + 1024) & 1023]
+                ipp = (ipp + 1) & 1023
+
+                # final accumulation and envelope application
+                ssample += sample * env_vol
+
+            ssample /= 8
+            clamp(&ssample, -1.0, 1.0)
+            s.samples[i] = samp(ssample)
     return s
