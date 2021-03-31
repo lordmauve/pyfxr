@@ -132,3 +132,28 @@ def explosion() -> SoundBuffer:
     return sfx(
         **locals()
     )
+
+
+def powerup() -> SoundBuffer:
+    if one_in(2):
+        wave_type = 1
+    else:
+        p_duty = random.uniform(0.0, 0.6)
+
+    if one_in(2):
+        p_base_freq = random.uniform(0.2, 0.5)
+        p_freq_ramp = random.uniform(0.1, 0.5)
+        p_repeat_speed = random.uniform(0.4, 0.8)
+    else:
+        p_base_freq = random.uniform(0.2, 0.5)
+        p_freq_ramp = random.uniform(0.05, 0.25)
+        if one_in(2):
+            p_vib_strength = random.uniform(0.0, 0.7)
+            p_vib_speed = random.uniform(0.0, 0.6)
+    p_env_attack = 0.0
+    p_env_sustain = random.uniform(0.0, 0.4)
+    p_env_decay = random.uniform(0.1, 0.5)
+
+    return sfx(
+        **locals()
+    )

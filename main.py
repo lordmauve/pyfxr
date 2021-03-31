@@ -13,7 +13,7 @@ pygame.mixer.init()
 sine = pyfxr.Waveform.square()
 
 start = time.perf_counter_ns()
-tone = pyfxr.laser()
+tone = pyfxr.powerup()
 end = time.perf_counter_ns()
 
 print("Generated tone in", (end - start) // 1000, "us")
