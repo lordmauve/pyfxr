@@ -157,3 +157,52 @@ def powerup() -> SoundBuffer:
     return sfx(
         **locals()
     )
+
+
+def hurt() -> SoundBuffer:
+    wave_type = random.choice([0, 1, 3])
+    if wave_type == 0:
+        p_duty = random.uniform(0, 0.6)
+    p_base_freq = random.uniform(0.2, 0.8)
+    p_freq_ramp = random.uniform(-0.7, -0.3)
+    p_env_attack = 0.0
+    p_env_sustain = random.uniform(0.0, 0.1)
+    p_env_decay = random.uniform(0.1, 0.3)
+    if one_in(2):
+        p_hpf_freq = random.uniform(0.0, 0.3)
+
+    return sfx(
+        **locals()
+    )
+
+
+def jump() -> SoundBuffer:
+    wave_type = 0
+    p_duty = random.uniform(0.0, 0.6)
+    p_base_freq = random.uniform(0.3, 0.6)
+    p_freq_ramp = random.uniform(0.1, 0.3)
+    p_env_attack = 0.0
+    p_env_sustain = random.uniform(0.1, 0.4)
+    p_env_decay = random.uniform(0.1, 0.3)
+    if one_in(2):
+        p_hpf_freq = random.uniform(0.0, 0.3)
+    if one_in(2):
+        p_lpf_freq = random.uniform(0.4, 1.0)
+
+    return sfx(
+        **locals()
+    )
+
+
+def select() -> SoundBuffer:
+    wave_type = random.choice([0, 1])
+    if wave_type == 0:
+        p_duty = random.uniform(0.0, 0.6)
+    p_base_freq = random.uniform(0.2, 0.6)
+    p_env_attack = 0.0
+    p_env_sustain = random.uniform(0.1, 0.2)
+    p_env_decay = random.uniform(0.0, 0.2)
+    p_hpf_freq = 0.1
+    return sfx(
+        **locals()
+    )
