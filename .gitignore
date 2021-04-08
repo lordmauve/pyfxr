@@ -1,8 +1,10 @@
 *.pyc
 *.swp
-/wasabigeom.html
-/wasabigeom.c
+/_pyfxr.html
+/_pyfxr.c
 /build/
 /dist/
 /venv/
 /doc/_build/
+/pyfxr.egg-info
+/_pyfxr.*.so
