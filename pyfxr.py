@@ -3,7 +3,7 @@ import random
 from functools import lru_cache
 from typing import Tuple
 
-from _pyfxr import SoundBuffer, Waveform, tone, sfx
+from _pyfxr import SoundBuffer, Waveform, tone, sfx, pluck
 
 
 NOTE_PATTERN = r'^([A-G])([b#]?)([0-8])$'

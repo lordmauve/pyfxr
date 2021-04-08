@@ -515,3 +515,44 @@ def sfx(
             clamp(&ssample, -1.0, 1.0)
             s.samples[i] = samp(ssample)
     return s
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+def pluck(float duration, float pitch, float release=0.1):
+    """Generate a pluck sound using the Karplus-Strong algorithm."""
+    cdef size_t delay, i, n_samples, release_samples, pos
+    cdef int16_t randval, prev
+    cdef float fsample
+    n_samples = <size_t> (SAMPLE_RATE * duration)
+    release_samples = min(<size_t> (SAMPLE_RATE * release), n_samples)
+
+    delay = <size_t> (SAMPLE_RATE / pitch)
+    if n_samples < delay:
+        raise ValueError(
+            f"n_samples must be at least {delay} for pitch {pitch}"
+        )
+
+    cdef SoundBuffer s = SoundBuffer(n_samples)
+
+    with nogil:
+        prev = 0
+        for i in range(delay):
+            randval = 1 << 15 if rand() % 2 else -(1 << 15)
+            prev = s.samples[i] = (randval >> 1) + (prev >> 1)
+
+        for i in range(delay, n_samples):
+            prev = s.samples[i] = (s.samples[i - delay] >> 1) + (prev >> 1)
+
+        # Apply attack and release envelopes
+        for pos in range(delay):
+            fsample = s.samples[pos] / <float> (1 << 15)
+            s.samples[pos] = samp(i * fsample / delay)
+        for i in range(release_samples):
+            pos = n_samples - i - 1
+            fsample = s.samples[pos] / <float> (1 << 15)
+            s.samples[pos] = samp(i * fsample / release_samples)
+
+    return s
