@@ -9,6 +9,7 @@ from cpython.mem cimport PyMem_Malloc, PyMem_Free
 
 
 cdef float AMPLITUDE = (1 << 15) - 1
+cdef uint32_t SAMPLE_RATE = 44100
 
 
 cdef int16_t samp(float v) nogil:
@@ -16,39 +17,39 @@ cdef int16_t samp(float v) nogil:
     return <int16_t> floor(v * AMPLITUDE)
 
 
-cdef class Waveform:
-    cdef int16_t[1024] waveform
+cdef class Wavetable:
+    cdef int16_t[1024] wavetable
 
     def __init__(self, gen):
         cdef int i
         for i, val in enumerate(gen):
-            self.waveform[i] = samp(val)
+            self.wavetable[i] = samp(val)
             if i == 1023:
                 return
 
         if i != 1023:
             raise ValueError(
-                "Waveform generator generated too few values."
+                "Wavetable generator generated too few values."
             )
 
     @staticmethod
     def sine():
-        cdef Waveform w
+        cdef Wavetable w
         cdef size_t i
-        w = Waveform.__new__(Waveform)
+        w = Wavetable.__new__(Wavetable)
         with nogil:
             for i in range(1024):
-                w.waveform[i] = samp(
+                w.wavetable[i] = samp(
                     sin(pi * 2.0 * i / 1023.0)
                 )
         return w
 
     @staticmethod
     def triangle():
-        cdef Waveform w
+        cdef Wavetable w
         cdef size_t i
         cdef float v
-        w = Waveform.__new__(Waveform)
+        w = Wavetable.__new__(Wavetable)
         with nogil:
             for i in range(1024):
                 if i < 256:
@@ -57,42 +58,42 @@ cdef class Waveform:
                     v = 1.0 - (i - 255) / 256
                 else:
                     v = (i - 768) / 256 - 1.0
-                w.waveform[i] = samp(v)
+                w.wavetable[i] = samp(v)
         return w
 
     @staticmethod
     def saw():
-        cdef Waveform w
+        cdef Wavetable w
         cdef size_t i
         cdef float v
-        w = Waveform.__new__(Waveform)
+        w = Wavetable.__new__(Wavetable)
         with nogil:
             for i in range(1024):
-                w.waveform[i] = samp(i / 512.0 - 1.0)
+                w.wavetable[i] = samp(i / 512.0 - 1.0)
         return w
 
     @staticmethod
     def square():
-        """Generate a square-wave waveform."""
-        cdef Waveform w
+        """Generate a square-wave wavetable."""
+        cdef Wavetable w
         cdef size_t i
         cdef float v
-        w = Waveform.__new__(Waveform)
+        w = Wavetable.__new__(Wavetable)
         with nogil:
             for i in range(512):
-                w.waveform[i] = -32768
+                w.wavetable[i] = -32768
             for i in range(512, 1024):
-                w.waveform[i] = 32767
+                w.wavetable[i] = 32767
         return w
 
     def __getbuffer__(self, Py_buffer *buffer, int flags):
         cdef Py_ssize_t itemsize = sizeof(int16_t)
 
-        buffer.buf = self.waveform
+        buffer.buf = self.wavetable
         buffer.format = 'h'                     # double
         buffer.internal = NULL                  # see References
         buffer.itemsize = itemsize
-        buffer.len = sizeof(self.waveform)
+        buffer.len = sizeof(self.wavetable)
         buffer.ndim = 1
         buffer.obj = self
         buffer.readonly = 0
@@ -107,6 +108,9 @@ cdef class Waveform:
 cdef class SoundBuffer:
     cdef size_t n_samples
     cdef int16_t *samples
+
+    sample_rate: int = SAMPLE_RATE
+    channels: int = 1
 
     def __cinit__(self, size_t n_samples):
         self.samples = <int16_t*> PyMem_Malloc(n_samples * sizeof(int16_t))
@@ -166,12 +170,47 @@ cdef class SoundBuffer:
     def __releasebuffer__(self, Py_buffer *buffer):
         pass
 
+    def get_queue_source(self):
+        """Duck type as a pyglet.media.Source."""
+        return PygletSource(self)
 
-cdef float SAMPLE_RATE = 44100
+
+cdef class PygletSource:
+    cdef SoundBuffer buf
+    cdef size_t pos
+
+    def __init__(self, SoundBuffer buf):
+        self.buf = buf
+        self.pos = 0
+
+    video_format = None
+
+    @property
+    def audio_format(self):
+        from pyglet.media.codecs import AudioFormat
+        return AudioFormat(
+            channels=1,
+            sample_size=16,
+            sample_rate=self.buf.sample_rate
+        )
+
+    def get_audio_data(self, length):
+        from pyglet.media.codecs import AudioData
+        if self.pos != 0:
+            return None
+
+        self.pos = self.buf.n_samples * sizeof(int16_t)
+        return AudioData(
+            self.buf,
+            self.pos,
+            self.buf.n_samples / <float> SAMPLE_RATE,
+            self.buf.duration,
+            ()
+        )
 
 
 def tone(
-    Waveform waveform,
+    Wavetable wavetable,
     double pitch=440.0,  # Hz, default = A
     uint32_t attack=4000,
     uint32_t decay=4000,
@@ -190,7 +229,7 @@ def tone(
     # is time >> 10
 
     time = 0
-    omega = <uint32_t> (pitch * 1024 / SAMPLE_RATE * 1024)
+    omega = <uint32_t> (pitch * 1024.0 / SAMPLE_RATE * 1024)
 
     n_samples = attack + decay + sustain + release
     t = SoundBuffer(n_samples)
@@ -199,7 +238,7 @@ def tone(
     with nogil:
         for i in range(n_samples):
             time += omega
-            v = waveform.waveform[(time >> 10) & 0x3ff]
+            v = wavetable.wavetable[(time >> 10) & 0x3ff]
 
             if i < attack:
                 amplitude = (i / <float> attack)
