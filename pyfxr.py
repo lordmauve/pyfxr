@@ -1,12 +1,32 @@
+import re
 import math
 import random
 from functools import lru_cache
-from typing import Tuple
+from typing import Tuple, Union
 
-from _pyfxr import SoundBuffer, Waveform, tone, sfx, pluck
+import _pyfxr
+from _pyfxr import SoundBuffer, Wavetable, sfx
+
+__all__ = (
+    'SoundBuffer',
+    'Wavetable',
+
+    'sfx',
+    'pickup',
+    'laser',
+    'explosion',
+    'powerup',
+    'hurt',
+    'jump',
+    'select',
+
+    'tone',
+    'pluck',
+    'note_to_hertz',
+)
 
 
-NOTE_PATTERN = r'^([A-G])([b#]?)([0-8])$'
+NOTE_PATTERN = re.compile(r'^([A-G])([b#]?)([0-8])$')
 
 A4 = 440.0
 
@@ -49,6 +69,58 @@ def validate_note(note: str) -> Tuple[str, str, int]:
         )
     note, accidental, octave = match.group(1, 2, 3)
     return note, accidental, int(octave)
+
+
+def pluck(
+    duration: float,
+    pitch: Union[float, str],
+    release: float = 0.1
+) -> SoundBuffer:
+    """Generate a pluck sound, like a harp or guitar."""
+    # This is a wrapper to handle converting a note string to a pitch
+    if isinstance(pitch, str):
+        pitch = note_to_hertz(pitch)
+    return _pyfxr.pluck(duration, pitch, release)
+
+
+pluck.__doc__ = _pyfxr.pluck.__doc__
+
+
+def tone(
+    pitch: Union[float, str] = 440.0,  # Hz, default = A
+    attack: float = 0.1,
+    decay: float = 0.1,
+    sustain: float = 0.75,
+    release: float = 0.25,
+    wavetable: Wavetable = Wavetable.sine(),
+) -> SoundBuffer:
+    """Generate a tone using a wavetable.
+
+    The tone will be modulated by an ADSR envelope
+    (attack-decay-sustain-release) which gives the tone a more natural feel,
+    and avoids clicks when played. The total length of the tone is the sum of
+    these durations.
+
+    :param wavetable: The wavetable to use (default is a sine wave).
+    :param pitch: The pitch of the tone to generate, either float Hz or a note
+                  name/number like ``Bb4`` for B-flat in the 4th octave.
+    :param attack: Attack time in seconds
+    :param decay: Decay time in seconds
+    :param sustain: Sustain time in seconds
+    :param release: Release time in seconds
+
+    """
+    # This is a wrapper to handle converting a note string to a pitch
+    if isinstance(pitch, str):
+        pitch = note_to_hertz(pitch)
+    return _pyfxr.tone(
+        wavetable,
+        pitch,
+        attack * 44100,
+        decay * 44100,
+        sustain * 44100,
+        release * 44100,
+    )
 
 
 def one_in(n: int) -> bool:

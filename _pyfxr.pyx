@@ -33,7 +33,24 @@ cdef class Wavetable:
             )
 
     @staticmethod
+    def from_function(f):
+        """Generate a wavetable by calling a function f.
+
+        f should take a single float argument between 0 and tau (pi * 2) and
+        return values in [-1, 1].
+        """
+        cdef Wavetable w
+        cdef double t
+
+        w = Wavetable.__new__(Wavetable)
+        for i in range(1024):
+            t = i * pi / 512
+            w.wavetable[i] = samp(f(t))
+        return w
+
+    @staticmethod
     def sine():
+        """Construct a sine waveform."""
         cdef Wavetable w
         cdef size_t i
         w = Wavetable.__new__(Wavetable)
@@ -46,6 +63,7 @@ cdef class Wavetable:
 
     @staticmethod
     def triangle():
+        """Construct a triangle waveform."""
         cdef Wavetable w
         cdef size_t i
         cdef float v
@@ -63,27 +81,38 @@ cdef class Wavetable:
 
     @staticmethod
     def saw():
+        """Construct a saw waveform."""
         cdef Wavetable w
         cdef size_t i
         cdef float v
         w = Wavetable.__new__(Wavetable)
         with nogil:
             for i in range(1024):
-                w.wavetable[i] = samp(i / 512.0 - 1.0)
+                w.wavetable[(i + 512) % 1024] = samp(i / 512.0 - 1.0)
         return w
 
     @staticmethod
-    def square():
-        """Generate a square-wave wavetable."""
+    def square(float duty_cycle=0.5):
+        """Generate a square-wave waveform.
+
+        duty_cycle is the fraction of the period during which the waveform is
+        greater than zero.
+
+        """
         cdef Wavetable w
-        cdef size_t i
+        cdef size_t i, split
         cdef float v
         w = Wavetable.__new__(Wavetable)
+
+        if not (0.0 < duty_cycle < 1.0):
+            raise ValueError("duty_cycle must be between 0 and 1")
+
+        split = round(duty_cycle * 1024)
         with nogil:
-            for i in range(512):
-                w.wavetable[i] = -32768
-            for i in range(512, 1024):
+            for i in range(split):
                 w.wavetable[i] = 32767
+            for i in range(split, 1024):
+                w.wavetable[i] = -32768
         return w
 
     def __getbuffer__(self, Py_buffer *buffer, int flags):
@@ -138,7 +167,7 @@ cdef class SoundBuffer:
 
     @property
     def duration(SoundBuffer self) -> float:
-        """Get the duration of this sound in seconds."""
+        """Get the duration of this sound in seconds, as a float."""
         return self.n_samples / <float> SAMPLE_RATE
 
     def save(self, filename: str):
