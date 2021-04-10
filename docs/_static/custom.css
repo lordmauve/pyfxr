@@ -1,0 +1,20 @@
+@import url('https://fonts.googleapis.com/css2?family=Baloo+Tammudu+2&display=swap');
+
+body {
+    color: #666;
+    font-family: sans-serif !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Baloo Tammudu 2', sans-serif !important;
+    margin-bottom: 0 !important;
+}
+
+
+div.sphinxsidebar a {
+    border-bottom-style: none !important;
+}
+
+.py {
+    margin: 1em;
+}

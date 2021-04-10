@@ -5,6 +5,6 @@
 /build/
 /dist/
 /venv/
-/doc/_build/
+/docs/_build/
 /pyfxr.egg-info
 /_pyfxr.*.so
