@@ -27,3 +27,11 @@ explosion = pyglet.media.StaticSource(pyfxr.explosion())
 # Play it
 explosion.play()
 ```
+
+## GUI
+
+A Pygame GUI is in development, to explore the feature set and create music!
+
+This can be run with `python main.py`.
+
+![Screenshot](docs/_static/keyboard.png)
