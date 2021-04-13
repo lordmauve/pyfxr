@@ -1,4 +1,2 @@
 cython
 pytest
-Sphinx>=2
-matplotlib
