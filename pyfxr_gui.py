@@ -1,7 +1,15 @@
 from math import sin, pi, copysign, cos
 import random
 import abc
-import pygame
+import sys
+
+try:
+    import pygame
+except ModuleNotFoundError:
+    sys.exit(
+        "Pygame was not found. To use the GUI, make sure you install "
+        "pyfxr with\n\npip install pyfxr[gui]"
+    )
 import pygame.draw
 import pygame.mixer
 from pygame import Rect
@@ -86,6 +94,33 @@ class Key(Button):
         s.play()
 
 
+class Label(Button):
+    def __init__(self, text, pos):
+        self.surf = None
+        self._text = text
+        self.rect = Rect(-1, -1, 0, 0)
+        self.pos = pos
+
+    @property
+    def text(self):
+        return self._text
+
+    @text.setter
+    def text(self, value):
+        self._text = value
+        self.surf = None
+        self.rect = Rect(-1, -1, 0, 0)
+
+    def draw(self):
+        if not self.surf:
+            self.surf = font.render(self._text, True, pygame.Color('black'))
+            self.rect = Rect(*self.pos, *self.surf.get_size())
+        screen.blit(self.surf, self.pos)
+
+    def on_click(self):
+        """Labels are not click-sensitive so this does nothing."""
+
+
 class Waveform:
     current = None
 
@@ -127,26 +162,32 @@ WIDGETS = []
 
 def make_keyboard():
     notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-    x = 50
-    y = 380
+    notes = [f'{note}{octave}' for octave in (3, 4, 5) for note in notes][:25]
+
+    keyboard = Rect(0, 400, 800, 200)
+    x = keyboard.left
     white_notes = []
     black_notes = []
-    for octave in (3, 4):
-        for note in notes:
-            if '#' in note:
-                black_notes.append(Key(
-                    f'{note}{octave}',
-                    Rect(x - 18, y - 3, 36, 130),
-                    BLACK_KEY,
-                    radius=3
-                ))
-            else:
-                white_notes.append(Key(
-                    f'{note}{octave}',
-                    Rect(x, y, 50, 200),
-                    WHITE_KEY,
-                ))
-                x += 50
+
+    n_white_keys = sum('#' not in note for note in notes)
+    key_width = keyboard.width / n_white_keys
+    black_width = 2 * (key_width * 2 // 6)
+
+    for note in notes:
+        if '#' in note:
+            black_notes.append(Key(
+                note,
+                Rect(x - black_width // 2, keyboard.top - 3, black_width, keyboard.height * 2 // 3),
+                BLACK_KEY,
+                radius=3
+            ))
+        else:
+            white_notes.append(Key(
+                note,
+                Rect(int(x), keyboard.top, int(x + key_width) - int(x) + 1, keyboard.height),
+                WHITE_KEY,
+            ))
+            x += key_width
     WIDGETS.extend(white_notes)
     WIDGETS.extend(black_notes)
 
@@ -179,13 +220,17 @@ def make_keyboard():
         ),
     ]
 
-    padding = 20
+    padding = 10
+    grid = Rect(30, 60, 800 - 60, 300)
     for i, w in enumerate(waves):
         ycell, xcell = divmod(i, 4)
-        width = (800 - 5 * padding) // 4
-        x = padding + xcell * (width + padding)
-        y = ycell * (100 + padding) + padding
-        WIDGETS.append(Waveform(w, Rect(x, y, width, 100)))
+        width = (grid.width - 3 * padding) / 4
+        height = (grid.height - 3 * padding) / 3
+        x = grid.left + xcell * (width + padding)
+        y = grid.top + ycell * (height + padding)
+        WIDGETS.append(Waveform(w, Rect(x, y, width, height)))
+
+    WIDGETS.append(Label("Available Waveforms", (30, 40)))
 
 
 make_keyboard()
@@ -199,7 +244,7 @@ def widget_at(pos):
 
 
 def main():
-    global screen
+    global screen, font
     pygame.mixer.pre_init(
         44100,
         channels=1
@@ -207,6 +252,7 @@ def main():
     pygame.init()
     pygame.display.set_caption("pyfxr")
     screen = pygame.display.set_mode((800, 600))
+    font = pygame.font.SysFont('sans-serif', 24, bold=False)
 
     while True:
         draw()
@@ -217,12 +263,14 @@ def main():
             return
         elif ev.type == pygame.MOUSEBUTTONDOWN:
             if ev.button == pygame.BUTTON_LEFT:
-                w = widget_at(ev.pos)
-                w and w.click()
+                clicked = widget_at(ev.pos)
+                if clicked:
+                    clicked.click()
         elif ev.type == pygame.MOUSEBUTTONUP:
             if ev.button == pygame.BUTTON_LEFT:
-                w = widget_at(ev.pos)
-                w and w.release()
+                if clicked:
+                    clicked.release()
+                    clicked = None
 
 
 def play():

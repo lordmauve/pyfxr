@@ -10,7 +10,12 @@ setup(
             "pygame>=2.0.1",
         ]
     },
-    py_modules=['pyfxr'],
+    py_modules=['pyfxr', 'pyfxr_gui'],
+    entry_points={
+        'gui_scripts': [
+            'pyfxr = pyfxr_gui:main [gui]',
+        ]
+    },
     ext_modules=cythonize(
         "_pyfxr.pyx",
         compiler_directives={'embedsignature': True}
