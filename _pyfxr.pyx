@@ -1,6 +1,6 @@
 #cython: language_level=3
 
-from libc.stdint cimport int16_t, uint32_t
+from libc.stdint cimport int16_t, uint32_t, uint64_t
 from libc.math cimport sin, pi, floor
 from libc.stdlib cimport rand, abs
 
@@ -246,19 +246,21 @@ def tone(
     uint32_t sustain=30000,
     uint32_t release=20000
 ):
-    cdef uint32_t time = 0
+    cdef uint64_t time = 0
     cdef size_t n_samples, i
     cdef SoundBuffer t
     cdef int16_t *samples
-    cdef uint32_t omega   # angular velocity
+    cdef uint64_t omega   # angular velocity
     cdef int16_t v
     cdef float amplitude
 
-    # time and omega will be fixed point where time in real samples
-    # is time >> 10
-
+    # time and omega will be fixed point with a 32-bit fractional part so
+    # that we can track time within the sample with simple integer addition.
+    #
+    # High accuracy is needed because single-bit rounding errors add up
+    # over tens of thousands of samples.
     time = 0
-    omega = <uint32_t> (pitch * 1024.0 / SAMPLE_RATE * 1024)
+    omega = <uint64_t> (pitch * 1024.0 / SAMPLE_RATE * (1 << 32))
 
     n_samples = attack + decay + sustain + release
     t = SoundBuffer(n_samples)
@@ -267,7 +269,7 @@ def tone(
     with nogil:
         for i in range(n_samples):
             time += omega
-            v = wavetable.wavetable[(time >> 10) & 0x3ff]
+            v = wavetable.wavetable[(time >> 32) & 1023]
 
             if i < attack:
                 amplitude = (i / <float> attack)
