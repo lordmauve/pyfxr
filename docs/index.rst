@@ -6,13 +6,14 @@ in simple Python computer games and in education. It can generate:
 
 * Highly configurable noises (the original sfxr_)
 * Pure tones with sine, square, saw and triangle waveforms
-* Pluck sounds, like harp or guitar, using the `Karplus-Strong algorithm <ks>`_
+* Pluck sounds, like harp or guitar, using the `Karplus-Strong algorithm`__
+
+.. __: https://flothesof.github.io/Karplus-Strong-algorithm-Python.html
 
 Sounds can be played with any library that supports the buffer protocol (such
 as Pygame), or saved to ``.wav`` files.
 
 .. _sfxr: https://www.drpetter.se/project_sfxr.html
-.. _ks: https://flothesof.github.io/Karplus-Strong-algorithm-Python.html
 
 For example, this is a complete program to generate a 1s pluck sound and play
 it with Pygame:
