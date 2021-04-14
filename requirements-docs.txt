@@ -1,2 +1,3 @@
+cython
 Sphinx>=2
 matplotlib
