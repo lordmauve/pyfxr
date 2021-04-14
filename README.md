@@ -12,12 +12,6 @@ the library with
 pip install pyfxr
 ```
 
-To also install the Pygame-based GUI, use
-
-```
-pip install pyfxr[gui]
-```
-
 ## Pygame Usage
 
 ```
@@ -47,6 +41,12 @@ explosion.play()
 
 A Pygame GUI is in development, to explore the feature set and create music!
 
-This can be run with `python main.py`.
+To install the Pygame-based GUI along with the library, use:
+
+```
+pip install pyfxr[gui]
+```
+
+Then you can run the GUI by running `pyfxr`.
 
 ![Screenshot](docs/_static/keyboard.png)
