@@ -2,6 +2,8 @@ from math import sin, pi, copysign, cos
 import random
 import abc
 import sys
+from functools import lru_cache
+import inspect
 
 try:
     import pygame
@@ -45,6 +47,32 @@ def rounded_rect(color, rect, radius=5):
     pygame.draw.rect(screen, highlight, rect, width=1, border_radius=radius)
 
 
+def text(text, pos, color='black', align='left'):
+    surf = text_surf(text, color)
+    x, y = pos
+    w, h = surf.get_size()
+    if align == 'left':
+        pass
+    elif align == 'center':
+        x -= w // 2
+    elif align == 'right':
+        x -= w
+    else:
+        raise ValueError(
+            "align must be left, right, or center"
+        )
+    screen.blit(surf, (x, y))
+    return pygame.Rect(x, y, *surf.get_size())
+
+
+@lru_cache()
+def text_surf(text, color='black'):
+    """Get a rendered text surface, with caching."""
+    if isinstance(color, str):
+        color = pygame.Color(color)
+    return font.render(text, True, color)
+
+
 def draw():
     screen.fill(BACKGROUND)
 
@@ -81,6 +109,16 @@ class Key(Button):
         super().__init__(*args, **kwargs)
 
     def on_click(self):
+        print(
+            "tone = pyfxr.tone(",
+            f"    {self.note!r}",
+            "    attack=0.05,",
+            "    sustain=0.0,",
+            "    release=0.1,",
+            "    wavetable=wavetable,",
+            ")",
+            sep="\n"
+        )
         s = pygame.mixer.Sound(
             buffer=pyfxr.tone(
                 self.note,
@@ -95,7 +133,9 @@ class Key(Button):
 
 
 class Label(Button):
-    def __init__(self, text, pos):
+    def __init__(self, text, pos, color='black', align='left'):
+        self.color = color
+        self.align = align
         self.surf = None
         self._text = text
         self.rect = Rect(-1, -1, 0, 0)
@@ -112,10 +152,7 @@ class Label(Button):
         self.rect = Rect(-1, -1, 0, 0)
 
     def draw(self):
-        if not self.surf:
-            self.surf = font.render(self._text, True, pygame.Color('black'))
-            self.rect = Rect(*self.pos, *self.surf.get_size())
-        screen.blit(self.surf, self.pos)
+        self.rect = text(self._text, self.pos, self.color, self.align)
 
     def on_click(self):
         """Labels are not click-sensitive so this does nothing."""
@@ -125,7 +162,8 @@ class Waveform:
     current = None
 
     def __init__(self, waveform, rect):
-        self.waveform = waveform
+        self.waveform_str = inspect.cleandoc(waveform)
+        self.waveform = eval(waveform)
         self.rect = rect
         wf = memoryview(self.waveform)
         points = []
@@ -151,6 +189,7 @@ class Waveform:
         )
 
     def click(self):
+        print(f"wavetable = {self.waveform_str}")
         Waveform.current = self.waveform
 
     def release(self):
@@ -192,32 +231,32 @@ def make_keyboard():
     WIDGETS.extend(black_notes)
 
     waves = [
-        pyfxr.Wavetable.sine(),
-        pyfxr.Wavetable.square(),
-        pyfxr.Wavetable.saw(),
-        pyfxr.Wavetable.triangle(),
-        pyfxr.Wavetable.from_function(
+        "pyfxr.Wavetable.sine()",
+        "pyfxr.Wavetable.square()",
+        "pyfxr.Wavetable.saw()",
+        "pyfxr.Wavetable.triangle()",
+        """pyfxr.Wavetable.from_function(
             lambda t: sin(t) * 0.7 + 0.3 * sin(6 * t + 0.5)
-        ),
-        pyfxr.Wavetable.from_function(
+        )""",
+        """pyfxr.Wavetable.from_function(
             lambda t: sin(t) * 0.5 + 0.5 * sin(2 * t)
-        ),
-        pyfxr.Wavetable.from_function(
+        )""",
+        """pyfxr.Wavetable.from_function(
             lambda t: sin(t) * 0.4 + 0.3 * sin(2 * t) + 0.3 * sin(10 * t - 1) * sin(t / 2)
-        ),
-        pyfxr.Wavetable.from_function(
+        )""",
+        """pyfxr.Wavetable.from_function(
             lambda t: 1 - 2 * abs(sin(t / 2 + pi / 2))
-        ),
-        pyfxr.Wavetable.from_function(
+        )""",
+        """pyfxr.Wavetable.from_function(
             lambda t: sin(10 * t) * sin(t / 2)
-        ),
-        pyfxr.Wavetable.square(0.8),
-        pyfxr.Wavetable.from_function(
+        )""",
+        "pyfxr.Wavetable.square(0.8)",
+        """pyfxr.Wavetable.from_function(
             lambda t: (sin(t) + sin(3 * t) + sin(5 * t)) / 3
-        ),
-        pyfxr.Wavetable.from_function(
+        )""",
+        """pyfxr.Wavetable.from_function(
             lambda t: sin(t) * 0.9 + 0.1 * copysign(sin(t), sin(3 * t))
-        ),
+        )""",
     ]
 
     padding = 10
