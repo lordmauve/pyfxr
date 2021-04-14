@@ -3,6 +3,21 @@
 Sound effects generation for Python, compatible with Pygame and Pyglet.
 
 
+## Installation
+
+`pyfxr` is on PyPI and pre-compiled for Mac, Windows and Linux. You can install
+the library with
+
+```
+pip install pyfxr
+```
+
+To also install the Pygame-based GUI, use
+
+```
+pip install pyfxr[gui]
+```
+
 ## Pygame Usage
 
 ```
