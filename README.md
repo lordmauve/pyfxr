@@ -12,6 +12,11 @@ the library with
 pip install pyfxr
 ```
 
+## Documentation
+
+[Full API documentation](https://pyfxr.readthedocs.io/)
+
+
 ## Pygame Usage
 
 ```
