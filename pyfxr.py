@@ -2,7 +2,8 @@ import re
 import math
 import random
 from functools import lru_cache
-from typing import Tuple, Union
+from typing import Tuple, Union, Optional
+from enum import Enum
 
 import _pyfxr
 from _pyfxr import SoundBuffer, Wavetable, sfx
@@ -11,7 +12,7 @@ __all__ = (
     'SoundBuffer',
     'Wavetable',
 
-    'sfx',
+    'SFX',
     'pickup',
     'laser',
     'explosion',
@@ -121,6 +122,139 @@ def tone(
         sustain * 44100,
         release * 44100,
     )
+
+
+class FloatParam:
+    """A parameter for a sound effect."""
+    name: str
+    default: float
+    min: Optional[float]
+    max: Optional[float]
+
+    def __init__(
+        self,
+        default: float = 0.0,
+        min: Optional[float] = None,
+        max: Optional[float] = None
+    ):
+        self.default = default
+        self.min = min
+        self.max = max
+        if max is not None and min is not None and self.max < self.min:
+            raise ValueError("max {self.max} < min {self.min}")
+        self.name = None
+
+    def __set_name__(self, cls: type, name: str):
+        self.name = name
+
+    def __get__(self, inst: 'SFX', cls: type) -> float:
+        return inst._params.get(self.name, self.default)
+
+    def __set__(self, inst: 'SFX', value: float):
+        value = float(value)
+        if self.min is not None and value < self.min:
+            raise ValueError(
+                f"{self.name} must be greater than {self.min} (got {value})"
+            )
+        elif self.max is not None and value > self.max:
+            raise ValueError(
+                f"{self.name} must be less than {self.max} (got {value})"
+            )
+        inst._params[self.name] = value
+
+
+class WaveType(Enum):
+    """The wave types available for the SFX builder.
+
+    Pure tones with tone() use arbitrary wavetables rather than this
+    enumeration.
+
+    """
+    SQUARE = 0
+    SAW = 1
+    SINE = 2
+    NOISE = 3
+
+
+class SFX:
+    """Build a sound effect using a set of parameters.
+
+    The list of parameters is long and the sensible ranges for the parameters
+    aren't that clear. This class acts as a validator and builder for the
+    parameters, making it simpler to experiment with sound effects.
+
+    """
+    base_freq: float = FloatParam(0.3)
+    freq_limit: float = FloatParam(0.0)
+    freq_ramp: float = FloatParam(0.0)
+    freq_dramp: float = FloatParam(0.0)
+
+    duty: float = FloatParam(0.0)
+    duty_ramp: float = FloatParam(0.0)
+
+    vib_strength: float = FloatParam(0.0)
+    vib_speed: float = FloatParam(0.0)
+    vib_delay: float = FloatParam(0.0)
+
+    env_attack: float = FloatParam(0.0)
+    env_sustain: float = FloatParam(0.3)
+    env_decay: float = FloatParam(0.4)
+    env_punch: float = FloatParam(0.0)
+
+    lpf_resonance: float = FloatParam(0.0)
+    lpf_freq: float = FloatParam(1.0)
+    lpf_ramp: float = FloatParam(0.0)
+
+    hpf_freq: float = FloatParam(0.0)
+    hpf_ramp: float = FloatParam(0.0)
+
+    pha_offset: float = FloatParam(0.0)
+    pha_ramp: float = FloatParam(0.0)
+
+    repeat_speed: float = FloatParam(0.0)
+
+    arp_speed: float = FloatParam(0.0)
+    arp_mod: float = FloatParam(0.0)
+
+    __slots__ = '_params'
+
+    def __init__(self, **kwargs):
+        self._params = {}
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    @property
+    def wave_type(self) -> WaveType:
+        """Get the wave type."""
+        return WaveType(self._params.get('wave_type', 0))
+
+    @wave_type.setter
+    def wave_type(self, v: Union[str, WaveType]):
+        """Set the wave type."""
+        if isinstance(v, str):
+            v = WaveType[v.upper()]
+        self._params['wave_type'] = WaveType(v).value
+
+    def build(self) -> SoundBuffer:
+        """Generate the sound."""
+        return sfx(**{
+            f'p_{k}' if k != 'wave_type' else k: v
+            for k, v in self._params
+        })
+
+    def envelope(
+        self,
+        attack: float = 0.0,
+        sustain: float = 0.3,
+        decay: float = 0.4,
+        punch: float = 0.0
+    ):
+        """Set the ADSR envelope for this sound effect."""
+        self.env_attack = attack
+        self.env_sustain = sustain
+        self.env_decay = decay
+        self.env_punch = punch
+        return self
 
 
 def one_in(n: int) -> bool:

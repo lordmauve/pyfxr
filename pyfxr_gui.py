@@ -269,7 +269,7 @@ def make_keyboard():
         y = grid.top + ycell * (height + padding)
         WIDGETS.append(Waveform(w, Rect(x, y, width, height)))
 
-    WIDGETS.append(Label("Available Waveforms", (30, 40)))
+    WIDGETS.append(Label("Example Waveforms", (30, 40)))
 
 
 make_keyboard()
