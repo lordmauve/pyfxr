@@ -2,7 +2,7 @@ import re
 import math
 import random
 from functools import lru_cache
-from typing import Tuple, Union, Optional
+from typing import Tuple, Union, Optional, Dict
 from enum import Enum
 
 import _pyfxr
@@ -183,6 +183,15 @@ class SFX:
     aren't that clear. This class acts as a validator and builder for the
     parameters, making it simpler to experiment with sound effects.
 
+    You can also serialise this class in several ways:
+
+    * The ``repr()`` is suitable for pasting into code.
+    * You can serialise it as JSON using ``.as_dict()``.
+    * You can pickle the class.
+
+    In any of these case the size is much smaller than the generated
+    SoundBuffer.
+
     """
     base_freq: float = FloatParam(0.3)
     freq_limit: float = FloatParam(0.0)
@@ -229,17 +238,60 @@ class SFX:
         return WaveType(self._params.get('wave_type', 0))
 
     @wave_type.setter
-    def wave_type(self, v: Union[str, WaveType]):
+    def wave_type(self, v: Union[str, int, WaveType]):
         """Set the wave type."""
         if isinstance(v, str):
             v = WaveType[v.upper()]
         self._params['wave_type'] = WaveType(v).value
 
+    def as_dict(self) -> dict:
+        """Get the parameters as a dict.
+
+        The dict is suitable for serialising as JSON; to reconstruct the
+        object, pass the parameters as kwargs to the constructor, eg.
+
+        >>> s = SFX(...)
+        >>> params = s.as_dict()
+        >>> s2 = SFX(**params)
+
+        """
+        return self._params.copy()
+
+    def __repr__(self):
+        """Generate a repr for this sound effect.
+
+        The repr is guaranteed to be executable code to reconstruct the SFX
+        instance.
+
+        """
+        params = [f'{type(self).__module__}.{type(self).__qualname__}(']
+
+        for k, desc in vars(type(self)).items():
+            if k != 'wave_type' and not isinstance(desc, FloatParam):
+                continue
+
+            try:
+                value = self._params[k]
+            except KeyError:
+                continue
+
+            r = repr(value)
+
+            if k == 'wave_type':
+                r = f'{value.__module__}.{value}'
+
+            params.append(f'    {k}={r},')
+        if len(params) == 1:
+            return params[0] + ')'
+        params.append(')')
+        return '\n'.join(params)
+
+
     def build(self) -> SoundBuffer:
         """Generate the sound."""
         return sfx(**{
             f'p_{k}' if k != 'wave_type' else k: v
-            for k, v in self._params
+            for k, v in self._params.items()
         })
 
     def envelope(
@@ -262,18 +314,26 @@ def one_in(n: int) -> bool:
     return not random.randint(0, n)
 
 
-def pickup() -> SoundBuffer:
+def _mksfx(params: Dict[str, float]) -> SFX:
+    """Round the parameters and construct an SFX.
+
+    Rounding is helpful because it makes the repr shorter and more
+    human-friendly.
+
+    """
+    return SFX(**{k: round(v, 3) for k, v in params.items()})
+
+
+def pickup() -> SFX:
     """Generate a random pickup sound."""
-    p_base_freq = random.uniform(0.4, 0.9)
-    p_env_attack = 0.0
-    p_env_sustain = random.uniform(0.0, 0.1)
-    p_env_decay = random.uniform(0.1, 0.5)
-    p_env_punch = random.uniform(0.3, 0.6)
+    base_freq = random.uniform(0.4, 0.9)
+    env_attack = 0.0
+    env_sustain = random.uniform(0.0, 0.1)
+    env_decay = random.uniform(0.1, 0.5)
+    env_punch = random.uniform(0.3, 0.6)
     if one_in(2):
-        p_arp_mod = random.uniform(0.2, 0.6)
-    return sfx(
-        **locals()
-    )
+        arp_mod = random.uniform(0.2, 0.6)
+    return _mksfx(locals())
 
 
 def laser() -> SoundBuffer:
