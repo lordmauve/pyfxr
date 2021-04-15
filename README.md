@@ -32,14 +32,23 @@ tone = pygame.mixer.Sound(
 tone.play()
 ```
 
-## Pyglet Usage
+## Usage with Pyglet
 
 ```
-# Generate a sound
+# Generate a random explosion sound
 explosion = pyglet.media.StaticSource(pyfxr.explosion())
 
 # Play it
 explosion.play()
+```
+
+## Usage with sounddevice
+
+```
+import sounddevice
+import pyfxr
+
+sounddevice.play(pyfxr.jump(), pyfxr.SAMPLE_RATE)
 ```
 
 ## GUI

@@ -6,6 +6,7 @@ from libc.stdlib cimport rand, abs
 
 cimport cython
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
+from cpython.buffer cimport PyObject_GetBuffer
 
 
 cdef float AMPLITUDE = (1 << 15) - 1
@@ -204,6 +205,41 @@ cdef class SoundBuffer:
         return PygletSource(self)
 
 
+cdef class CachedSound:
+    cdef SoundBuffer buf
+
+    def __cinit__(self):
+        self.buf = None
+
+    def _clear(self):
+        self.buf = None
+
+    def _set(self, SoundBuffer sound):
+        self.buf = sound
+
+    def _get(self):
+        if self.buf is None:
+            self.buf = <SoundBuffer?> self._build()
+        return self.buf
+
+    def _build(self) -> SoundBuffer:
+        """Override this to build the sound.
+
+        Must return a SoundBuffer.
+        """
+
+    def __getbuffer__(self, Py_buffer *buffer, int flags):
+        """Delegate to our cached sound.
+
+        If we have no cached sound, attempt to build it by calling build().
+
+        """
+        PyObject_GetBuffer(self._get(), buffer, flags)
+
+    def __releasebuffer__(self, Py_buffer *buffer):
+        pass
+
+
 cdef class PygletSource:
     cdef SoundBuffer buf
     cdef size_t pos
@@ -321,7 +357,7 @@ cdef void reset_sample(
     else:
         arp_mod[0] = 1.0 + p_arp_mod ** 2.0 * 10.0
     arp_time[0] = 0
-    arp_limit[0] = <int> ((1.0 - p_arp_speed) ** 2.0) * 20000 + 32
+    arp_limit[0] = <int> (((1.0 - p_arp_speed) ** 2.0) * 20000 + 32)
     if p_arp_speed == 1.0:
         arp_limit[0] = 0
 
@@ -489,7 +525,7 @@ def sfx(
             # frequency envelopes/arpeggios
             arp_time += 1
             if 0 != arp_limit < arp_time:
-                arp_limit=0
+                arp_limit = 0
                 fperiod *= arp_mod
 
             fslide += fdslide
@@ -521,7 +557,7 @@ def sfx(
             if env_stage == 0:
                 env_vol = <float> env_time / env_length[0]
             elif env_stage == 1:
-                # TODO: what's this pow doing?
+                # TODO: removed a pow(1.0 - x / y, 1.0) here. Why?
                 env_vol = 1.0 + (1.0 - <float> env_time / env_length[1]) * 2.0 * p_env_punch
             elif env_stage == 2:
                 env_vol = 1.0 - <float> env_time / env_length[2]

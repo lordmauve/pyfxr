@@ -15,7 +15,14 @@ programs.
 
 .. _sfxr: https://www.drpetter.se/project_sfxr.html
 
-.. autofunction:: sfx
+.. autoclass:: SFX
+    :members:
+
+
+The ``wave_type`` of an SFX must be one of these values:
+
+.. autoclass:: WaveType
+    :members:
 
 You can also randomly generate those parameters:
 
