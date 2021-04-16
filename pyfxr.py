@@ -28,6 +28,7 @@ __all__ = (
     'note_to_hertz',
 
     'chord',
+    'simple_chord',
 )
 
 
@@ -40,7 +41,7 @@ A4 = 440.0
 
 NOTE_VALUE = dict(C=-9, D=-7, E=-5, F=-4, G=-2, A=0, B=2)
 
-TWELTH_ROOT = math.pow(2, (1 / 12))
+TWELFTH_ROOT = math.pow(2, (1 / 12))
 
 
 @lru_cache()
@@ -53,7 +54,85 @@ def note_to_hertz(note: str) -> float:
     """
     note, accidental, octave = validate_note(note)
     value = note_value(note, accidental, octave)
-    return A4 * math.pow(TWELTH_ROOT, value)
+    return A4 * math.pow(TWELFTH_ROOT, value)
+
+
+# Regex to match chords
+CHORD_PATTERN = re.compile(r'^([A-G])([b#]?)(M?7?|[m-]7?|(?:dim|o)|\+)$')
+# The chords in integer notation
+CHORDS = {
+    # Major
+    '': (0, 4, 7),
+    'M': (0, 4, 7),
+
+    # Minor
+    'm': (0, 3, 7),
+    '-': (0, 3, 7),
+
+    # Dominant 7th
+    '7': (0, 4, 7, 10),
+
+    # Major 7th
+    'M7': (0, 4, 7, 11),
+
+    # Minor 7th
+    'm7': (0, 3, 7, 10),
+    '-7': (0, 3, 7, 10),
+
+    # Diminished 7th
+    'dim': (0, 3, 6, 9),
+    'o': (0, 3, 6, 9),
+
+    # Augmented 7th
+    '+': (0, 4, 8),
+}
+
+
+def simple_chord(
+    name: str,
+    attack: float = 0.1,
+    decay: float = 0.1,
+    sustain: float = 0.75,
+    release: float = 0.25,
+    wavetable: Wavetable = Wavetable.sine(),
+    stagger: float = 0.0,
+) -> SoundBuffer:
+    """Construct a chord using a chord name like
+
+    * `C` - major chord in C
+    * `Bbm` or `Bb-` - minor chord in B-flat
+    * `D7` - dominant 7th
+
+    etc.
+
+    Other parameters are as for :func:`tone` and `:func:`chord`.
+    """
+
+    mo = CHORD_PATTERN.match(name)
+    if not mo:
+        raise ValueError(
+            f"{name} is not a valid chord."
+            'The key is A-F, either normal, flat (b) or sharp (#) '
+            'and then a chord type like minor (m), dominant 7th (7), '
+            'diminished 7th (dim), or nothing for a major chord.'
+        )
+    key, accidental, type = mo.groups()
+    value = note_value(key, accidental, 3)
+    tones = CHORDS[type]
+    pitches = [A4 * math.pow(TWELFTH_ROOT, value + i) for i in tones]
+    sounds = [
+        _pyfxr.tone(
+            wavetable,
+            pitch,
+            attack * 44100,
+            decay * 44100,
+            sustain * 44100,
+            release * 44100,
+        )
+        for pitch in pitches
+    ]
+    random.shuffle(sounds)
+    return chord(sounds, stagger=stagger)
 
 
 def note_value(note: str, accidental: str, octave: int) -> int:

@@ -5,3 +5,6 @@ Composing tools
 
 
 .. autofunction:: chord
+
+
+.. autofunction:: simple_chord

@@ -53,7 +53,8 @@ Changes
 0.3.0
 '''''
 
-* New: :func:`chord` function for combining sounds
+* New: :func:`chord` for combining sounds
+* New: :func:`simple_chord` for generating harmonic chords from chord names
 
 0.2.0
 '''''
