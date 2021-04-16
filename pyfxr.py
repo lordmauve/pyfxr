@@ -6,7 +6,7 @@ from typing import Tuple, Union, Optional, Dict
 from enum import Enum
 
 import _pyfxr
-from _pyfxr import SoundBuffer, Wavetable, sfx, CachedSound
+from _pyfxr import SoundBuffer, Wavetable, sfx, CachedSound, chord
 
 __all__ = (
     'SAMPLE_RATE',
@@ -26,6 +26,8 @@ __all__ = (
     'tone',
     'pluck',
     'note_to_hertz',
+
+    'chord',
 )
 
 
@@ -68,7 +70,7 @@ def note_value(note: str, accidental: str, octave: int) -> int:
 def validate_note(note: str) -> Tuple[str, str, int]:
     match = re.match(NOTE_PATTERN, note)
     if match is None:
-        raise InvalidNote(
+        raise ValueError(
             '%s is not a valid note. '
             'notes are A-F, are either normal, flat (b) or sharp (#) '
             'and of octave 0-8' % note

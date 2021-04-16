@@ -1,8 +1,9 @@
 #cython: language_level=3
 
-from libc.stdint cimport int16_t, uint32_t, uint64_t
+from libc.stdint cimport int16_t, int32_t, uint32_t, uint64_t
 from libc.math cimport sin, pi, floor
 from libc.stdlib cimport rand, abs
+from libc.string cimport memcpy, memset
 
 cimport cython
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
@@ -660,5 +661,65 @@ def pluck(float duration, float pitch, float release=0.1):
             pos = n_samples - i - 1
             fsample = s.samples[pos] / <float> (1 << 15)
             s.samples[pos] = samp(i * fsample / release_samples)
+
+    return s
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+def chord(
+    sounds: "List[Union[SoundBuffer, SFX]]",
+    double stagger = 0.0
+) -> SoundBuffer:
+    """Generate a chord by combining several sounds.
+
+    If stagger is given, the start of each additional sound will be delayed
+    by *stagger* seconds.
+
+    """
+    cdef:
+        size_t n_samples, n, offset, i, istagger
+        int16_t *out_samples
+        int16_t *in_samples
+        int32_t samp, div
+        SoundBuffer s, longest, current
+
+    istagger = <size_t> (stagger * SAMPLE_RATE)
+
+    sounds = list(sounds)
+    if not sounds:
+        raise ValueError("No sounds given.")
+
+    for i, snd in enumerate(sounds):
+        if isinstance(snd, CachedSound):
+            sounds[i] = snd._get()
+        elif not isinstance(snd, SoundBuffer):
+            raise TypeError(
+                f"Invalid type for chord: {snd!r}"
+            )
+
+    n = len(sounds)
+    div = n
+    longest = max(sounds, key=len)
+    n_samples = longest.n_samples + istagger * n
+    s = SoundBuffer(n_samples)
+    out_samples = s.samples
+
+    memset(out_samples, 0, n_samples * sizeof(int16_t))
+    for offset, current in enumerate(sounds):
+        offset *= istagger
+        in_samples = current.samples
+        out_samples = s.samples + offset
+        for i in range(current.n_samples):
+            samp = <int32_t> out_samples[i]
+            samp += in_samples[i] / div
+
+            if samp > (1 << 15) - 1:
+                samp = (1 << 15) - 1
+            elif samp < -(1 << 15):
+                samp = -(1 << 15)
+            out_samples[i] = <int16_t> samp
 
     return s

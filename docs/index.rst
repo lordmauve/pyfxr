@@ -41,11 +41,19 @@ it with Pygame:
    :caption: Contents:
 
    generating
+   composing
    soundbuffer
 
 
 Changes
 -------
+
+.. currentmodule:: pyfxr
+
+0.3.0
+'''''
+
+* New: :func:`chord` function for combining sounds
 
 0.2.0
 '''''
