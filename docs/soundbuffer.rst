@@ -2,7 +2,7 @@ Using Soundbuffer objects
 =========================
 
 pyfxr's :doc:`sound generation APIs <generating>` return :class:`SoundBuffer`
-objects.
+and :class:`SFX` objects.
 
 A soundbuffer is a packed sequence of 16-bit samples::
 
@@ -19,6 +19,10 @@ You can also save a SoundBuffer to a ``.wav`` file, which is very widely
 supported::
 
     buf.save("explosion1.wav")
+
+An SFX object is a set of parameters to generate a SoundBuffer. You can
+generate and retrieve the SoundBuffer with :meth:`SFX.build()`, but you can
+also play an SFX just like a SoundBuffer.
 
 
 .. currentmodule:: pyfxr

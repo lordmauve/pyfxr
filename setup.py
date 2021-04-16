@@ -12,7 +12,7 @@ setup(
     },
     py_modules=['pyfxr', 'pyfxr_gui'],
     entry_points={
-        'gui_scripts': [
+        'console_scripts': [
             'pyfxr = pyfxr_gui:main [gui]',
         ]
     },

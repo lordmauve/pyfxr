@@ -44,6 +44,22 @@ it with Pygame:
    soundbuffer
 
 
+Changes
+-------
+
+0.2.0
+'''''
+
+* New: :class:`SFX`, which manages parameters for sfx generation
+* Change: ``jump()``, ``explosion()`` etc now return ``SFX`` instances.
+* New: GUI now prints code for sounds generated
+* Deprecation: ``sfx()`` is now deprecated, use :class:`SFX`.
+* Fix: bug in handling of ``arp_mod`` parameter
+
+0.1.0
+'''''
+
+Initial release.
 
 Indices and tables
 ==================
