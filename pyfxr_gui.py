@@ -1,6 +1,5 @@
 from math import sin, pi, copysign, cos
 import random
-import abc
 import sys
 from functools import lru_cache
 import inspect
@@ -80,7 +79,7 @@ def draw():
         w.draw()
 
 
-class Button(abc.ABC):
+class Button:
     def __init__(self, rect, color, radius=5):
         self.rect = rect
         self.color = color
@@ -91,16 +90,16 @@ class Button(abc.ABC):
         color = lighter(self.color) if self.selected else self.color
         rounded_rect(color, self.rect)
 
-    def click(self):
-        self.selected = True
-        self.on_click()
-
-    def release(self):
-        self.selected = False
-
-    @abc.abstractmethod
-    def on_click(self):
+    def on_click(self, pos):
         """Implement this to define click interactions."""
+        self.selected = True
+
+    def on_drag(self, pos):
+        """Implement this to define click interactions."""
+
+    def on_release(self, pos):
+        """Implement this to define click interactions."""
+        self.selected = False
 
 
 class Key(Button):
@@ -108,7 +107,8 @@ class Key(Button):
         self.note = note
         super().__init__(*args, **kwargs)
 
-    def on_click(self):
+    def on_click(self, pos):
+        super().on_click(pos)
         print(
             "tone = pyfxr.tone(",
             f"    {self.note!r}",
@@ -154,7 +154,7 @@ class Label(Button):
     def draw(self):
         self.rect = text(self._text, self.pos, self.color, self.align)
 
-    def on_click(self):
+    def on_click(self, pos):
         """Labels are not click-sensitive so this does nothing."""
 
 
@@ -188,48 +188,84 @@ class Waveform:
             self.points
         )
 
-    def click(self):
+    def on_click(self, pos):
         print(f"wavetable = {self.waveform_str}")
         Waveform.current = self.waveform
 
-    def release(self):
+    def on_release(self, pos):
         pass
 
 
 WIDGETS = []
 
 
-def make_keyboard():
-    notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-    notes = [f'{note}{octave}' for octave in (3, 4, 5) for note in notes][:25]
+class Keyboard:
+    def __init__(self, rect=Rect(0, 400, 800, 200)):
+        self.widgets = []
+        self.rect = rect
+        self.build(rect)
+        self.clicked = True
 
-    keyboard = Rect(0, 400, 800, 200)
-    x = keyboard.left
-    white_notes = []
-    black_notes = []
+    def draw(self):
+        for w in self.widgets:
+            w.draw()
 
-    n_white_keys = sum('#' not in note for note in notes)
-    key_width = keyboard.width / n_white_keys
-    black_width = 2 * (key_width * 2 // 6)
+    def build(self, keyboard: Rect):
+        notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+        notes = [f'{note}{octave}' for octave in (3, 4, 5) for note in notes][:25]
 
-    for note in notes:
-        if '#' in note:
-            black_notes.append(Key(
-                note,
-                Rect(x - black_width // 2, keyboard.top - 3, black_width, keyboard.height * 2 // 3),
-                BLACK_KEY,
-                radius=3
-            ))
-        else:
-            white_notes.append(Key(
-                note,
-                Rect(int(x), keyboard.top, int(x + key_width) - int(x) + 1, keyboard.height),
-                WHITE_KEY,
-            ))
-            x += key_width
-    WIDGETS.extend(white_notes)
-    WIDGETS.extend(black_notes)
+        keyboard = Rect(0, 400, 800, 200)
+        x = keyboard.left
+        white_notes = []
+        black_notes = []
 
+        n_white_keys = sum('#' not in note for note in notes)
+        key_width = keyboard.width / n_white_keys
+        black_width = 2 * (key_width * 2 // 6)
+
+        for note in notes:
+            if '#' in note:
+                black_notes.append(Key(
+                    note,
+                    Rect(x - black_width // 2, keyboard.top - 3, black_width, keyboard.height * 2 // 3),
+                    BLACK_KEY,
+                    radius=3
+                ))
+            else:
+                white_notes.append(Key(
+                    note,
+                    Rect(int(x), keyboard.top, int(x + key_width) - int(x) + 1, keyboard.height),
+                    WHITE_KEY,
+                ))
+                x += key_width
+        self.widgets.extend(white_notes)
+        self.widgets.extend(black_notes)
+
+    def key_at(self, pos):
+        return widget_at(pos, self.widgets)
+
+    def on_click(self, pos):
+        widget = self.key_at(pos)
+        if widget:
+            widget.on_click(pos)
+            self.clicked = widget
+
+    def on_drag(self, pos):
+        widget = self.key_at(pos)
+        if widget != self.clicked:
+            if self.clicked:
+                self.clicked.on_release(pos)
+            if widget:
+                widget.on_click(pos)
+            self.clicked = widget
+
+    def on_release(self, pos):
+        if self.clicked:
+            self.clicked.on_release(pos)
+            self.clicked = None
+
+
+def make_waves():
     waves = [
         "pyfxr.Wavetable.sine()",
         "pyfxr.Wavetable.square()",
@@ -272,11 +308,12 @@ def make_keyboard():
     WIDGETS.append(Label("Example Waveforms", (30, 40)))
 
 
-make_keyboard()
+WIDGETS.append(Keyboard())
+make_waves()
 
 
-def widget_at(pos):
-    for b in reversed(WIDGETS):
+def widget_at(pos, widgets=None):
+    for b in reversed(widgets or WIDGETS):
         if b.rect.collidepoint(pos):
             return b
     return None
@@ -304,11 +341,15 @@ def main():
             if ev.button == pygame.BUTTON_LEFT:
                 clicked = widget_at(ev.pos)
                 if clicked:
-                    clicked.click()
+                    clicked.on_click(ev.pos)
+        elif ev.type == pygame.MOUSEMOTION:
+            if pygame.BUTTON_LEFT in ev.buttons:
+                if clicked:
+                    clicked.on_drag(ev.pos)
         elif ev.type == pygame.MOUSEBUTTONUP:
             if ev.button == pygame.BUTTON_LEFT:
                 if clicked:
-                    clicked.release()
+                    clicked.on_release(ev.pos)
                     clicked = None
 
 
