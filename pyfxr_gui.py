@@ -193,6 +193,9 @@ class Waveform:
         print(f"wavetable = {self.waveform_str}")
         Waveform.current = self.waveform
 
+    def on_drag(self, pos):
+        pass
+
     def on_release(self, pos):
         pass
 
@@ -443,11 +446,16 @@ class Randomiser(TextButton):
         if self.label != 'reset':
             print(f"random_{self.func} = {self.func}()")
         sfx = getattr(pyfxr, self.func)()
-        for w in WIDGETS:
-            if isinstance(w, Slider):
-                w.value = getattr(sfx, w.param_name)
-        Radio.set(sfx.wave_type.value)
+        update_sfx_ui()
         playfx()
+
+
+def update_sfx_ui():
+    """Update the sfx UI from the current sfx parameters."""
+    for w in WIDGETS:
+        if isinstance(w, Slider):
+            w.value = getattr(sfx, w.param_name)
+    Radio.set(sfx.wave_type.value)
 
 
 class Radio:
@@ -473,7 +481,7 @@ class Radio:
         rounded_rect(WHITE_KEY, checkbox)
         if self.selected:
             pygame.draw.circle(screen, pygame.Color('#006600'), self.pos, 5)
-        textbox = text(self.label, (checkbox.right + 5, self.rect.top))
+        textbox = text(self.label, (checkbox.right + 8, self.rect.top + 1))
         self.rect = checkbox.union(textbox)
 
     def on_click(self, pos):
@@ -487,7 +495,7 @@ class Radio:
     def on_change(value):
         raise NotImplementedError("Override Radio.on_change")
 
-    def on_draw(self, pos):
+    def on_drag(self, pos):
         pass
 
     def on_release(self, pos):
@@ -531,10 +539,10 @@ def fxr_tab():
         WIDGETS.append(button)
 
     WIDGETS.extend([
-        Radio('Square', (200, 50), 0),
-        Radio('Saw', (320, 50), 1),
-        Radio('Sine', (440, 50), 2),
-        Radio('Noise', (560, 50), 3),
+        Radio('Square', (200, 60), 0),
+        Radio('Saw', (320, 60), 1),
+        Radio('Sine', (440, 60), 2),
+        Radio('Noise', (560, 60), 3),
     ])
 
     def change_wave(value):
@@ -543,21 +551,44 @@ def fxr_tab():
         playfx()
 
     Radio.on_change = staticmethod(change_wave)
-    Radio.set(0)
 
     x = 190
-    y = 80
+    y = 90
     for param in params:
-        WIDGETS.append(Slider(param, Rect(x, y, 150, 40)))
+        WIDGETS.append(Slider(param, Rect(x, y, 170, 40)))
         y += 60
-        if y > 500:
-            y = 80
-            x += 170
+        if y > 550:
+            y = 90
+            x += 190
+
+    update_sfx_ui()
+
+
+class TabButton(TextButton):
+    current_tab = 'sfx'
+
+    def __init__(self, click, label, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.click = click
+        self.label = label
+
+        # invert selection just so that selected tab is brighter
+        self.selected = label != self.current_tab
+
+    def on_click(self, pos):
+        super().on_click(pos)
+        TabButton.current_tab = self.label
+        self.click()
+
+    def on_release(self, pos):
+        pass
+
 
 def tabs():
-    WIDGETS.append(
-        Label("F1 = tones     F2 = sfx", (20, 10))
-    )
+    WIDGETS.extend([
+        TabButton(fxr_tab, "sfx", Rect(20, -4, 100, 30)),
+        TabButton(tones_tab, "tones", Rect(122, -4, 100, 30)),
+    ])
 
 
 fxr_tab()
