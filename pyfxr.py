@@ -214,20 +214,18 @@ class FloatParam:
     """A parameter for a sound effect."""
     name: str
     default: float
-    min: Optional[float]
-    max: Optional[float]
+
+    #: If True, then accept negative numbers for the parameter
+    bipolar: bool
 
     def __init__(
         self,
         default: float = 0.0,
-        min: Optional[float] = None,
-        max: Optional[float] = None
+        *,
+        bipolar: bool = False
     ):
         self.default = default
-        self.min = min
-        self.max = max
-        if max is not None and min is not None and self.max < self.min:
-            raise ValueError("max {self.max} < min {self.min}")
+        self.bipolar = bipolar
         self.name = None
 
     def __set_name__(self, cls: type, name: str):
@@ -238,13 +236,9 @@ class FloatParam:
 
     def __set__(self, inst: 'SFX', value: float):
         value = float(value)
-        if self.min is not None and value < self.min:
+        if value < 0.0 and not self.bipolar:
             raise ValueError(
-                f"{self.name} must be greater than {self.min} (got {value})"
-            )
-        elif self.max is not None and value > self.max:
-            raise ValueError(
-                f"{self.name} must be less than {self.max} (got {value})"
+                f"Negative values are not value for {self.name}"
             )
         inst._params[self.name] = value
         inst._clear()
@@ -296,17 +290,17 @@ class SFX(CachedSound):
 
     #: The initial frequency of the sound
     base_freq: float = FloatParam(0.3)
-    #: The maximum frequency of the sound
+    #: The minimum frequency of the sound
     freq_limit: float = FloatParam(0.0)
     #: The rate of change of the frequency of the sound
-    freq_ramp: float = FloatParam(0.0)
+    freq_ramp: float = FloatParam(0.0, bipolar=True)
     #: The acceleration of the change in frequency of the sound
-    freq_dramp: float = FloatParam(0.0)
+    freq_dramp: float = FloatParam(0.0, bipolar=True)
 
     #: If using square wave, the duty cycle of the waveform
     duty: float = FloatParam(0.0)
     #: The rate of change of the square wave duty cycle
-    duty_ramp: float = FloatParam(0.0)
+    duty_ramp: float = FloatParam(0.0, bipolar=True)
 
     #: Vibrato strength
     vib_strength: float = FloatParam(0.0)
@@ -326,20 +320,20 @@ class SFX(CachedSound):
 
     #: Low-pass filter resonance
     lpf_resonance: float = FloatParam(0.0)
-    #: Low-pass filter frequency
+    #: Low-pass filter cutoff frequency
     lpf_freq: float = FloatParam(1.0)
-    #: Low-pass filter ramp
-    lpf_ramp: float = FloatParam(0.0)
+    #: Low-pass filter cutoff ramp
+    lpf_ramp: float = FloatParam(0.0, bipolar=True)
 
     #: High-pass filter frequency
     hpf_freq: float = FloatParam(0.0)
     #: High-pass filter ramp
-    hpf_ramp: float = FloatParam(0.0)
+    hpf_ramp: float = FloatParam(0.0, bipolar=True)
 
     #: Phaser offset
-    pha_offset: float = FloatParam(0.0)
+    pha_offset: float = FloatParam(0.0, bipolar=True)
     #: Phaser ramp
-    pha_ramp: float = FloatParam(0.0)
+    pha_ramp: float = FloatParam(0.0, bipolar=True)
 
     #: Repeat speed
     repeat_speed: float = FloatParam(0.0)
@@ -347,7 +341,7 @@ class SFX(CachedSound):
     #: Arpeggio speed
     arp_speed: float = FloatParam(0.0)
     #: Arpeggio mod
-    arp_mod: float = FloatParam(0.0)
+    arp_mod: float = FloatParam(0.0, bipolar=True)
 
     __slots__ = '_params'
 

@@ -41,6 +41,8 @@ def darker(color):
 
 
 def rounded_rect(color, rect, radius=5):
+    if isinstance(color, str):
+        color = pygame.Color(color)
     highlight = darker(color)
     pygame.draw.rect(screen, color, rect, width=0, border_radius=radius)
     pygame.draw.rect(screen, highlight, rect, width=1, border_radius=radius)
@@ -324,12 +326,13 @@ class Slider:
         self.label = param
         self.param = pyfxr.SFX.__dict__[param]
         self.value = self.param.default
+        self.bipolar = self.param.bipolar
 
     def draw(self):
-        text(
-            f"{self.label}: {round(self.value, 2)}",
-            (self.rect.left, self.rect.top)
-        )
+        if self.bipolar:
+            x = self.rect.centerx
+        else:
+            x = self.rect.left
         rounded_rect(
             WHITE_KEY,
             Rect(
@@ -340,15 +343,35 @@ class Slider:
             )
         )
         rounded_rect(
+            'red',
+            Rect(
+                x,
+                self.rect.top + 20,
+                2,
+                15
+            )
+        )
+        text(
+            f"{self.label}: {round(self.value, 2)}",
+            (self.rect.left, self.rect.top)
+        )
+        rounded_rect(
             WHITE_KEY,
             self.slider_rect(),
         )
 
+    WIDTH = 10
+
     def slider_rect(self):
+        track_width = self.rect.width - self.WIDTH
+        if self.bipolar:
+            x = self.rect.centerx + self.value * track_width * 0.5 - self.WIDTH / 2
+        else:
+            x = self.rect.left + self.value * track_width
         return Rect(
-            self.rect.left + self.value * (self.rect.width - 16),
+            x,
             self.rect.top + 15,
-            16,
+            self.WIDTH,
             24
         )
 
@@ -368,10 +391,15 @@ class Slider:
         slider_newx = clamp(
             x - self.drag_offset,
             self.rect.left,
-            self.rect.right - 16
+            self.rect.right - self.WIDTH
         )
 
-        self.value = (slider_newx - self.rect.left) / (self.rect.width - 16)
+        xpos = slider_newx - self.rect.left
+        track_width = self.rect.width - self.WIDTH
+        if self.bipolar:
+            self.value = 2 * (xpos / track_width) - 1.0
+        else:
+            self.value = xpos / track_width
 
     def on_release(self, pos):
         self.on_drag(pos)
@@ -407,15 +435,69 @@ class Randomiser(TextButton):
     def __init__(self, func, rect):
         super().__init__(rect)
         self.func = self.label = func
+        if func == 'reset':
+            self.func = 'SFX'
 
     def on_click(self, pos):
         global sfx
-        print(f"random_{self.func} = {self.func}()")
+        if self.label != 'reset':
+            print(f"random_{self.func} = {self.func}()")
         sfx = getattr(pyfxr, self.func)()
         for w in WIDGETS:
             if isinstance(w, Slider):
                 w.value = getattr(sfx, w.param_name)
+        Radio.set(sfx.wave_type.value)
         playfx()
+
+
+class Radio:
+    """A radio button.
+
+    Currently all radio buttons on the screen are mutually exclusive.
+    """
+
+    def __init__(self, label, pos, value):
+        self.label = label
+        self.pos = pos
+        x, y = pos
+        self.rect = Rect(
+            x - 8, y - 10,
+            200, 20
+        )
+        self.selected = False
+        self.value = value
+
+    def draw(self):
+        x, y = self.pos
+        checkbox = Rect(x - 8, y - 8, 16, 16)
+        rounded_rect(WHITE_KEY, checkbox)
+        if self.selected:
+            pygame.draw.circle(screen, pygame.Color('#006600'), self.pos, 5)
+        textbox = text(self.label, (checkbox.right + 5, self.rect.top))
+        self.rect = checkbox.union(textbox)
+
+    def on_click(self, pos):
+        self.selected = True
+        for w in WIDGETS:
+            if isinstance(w, Radio) and w is not self:
+                w.selected = False
+        self.on_change(self.value)
+
+    @staticmethod
+    def on_change(value):
+        raise NotImplementedError("Override Radio.on_change")
+
+    def on_draw(self, pos):
+        pass
+
+    def on_release(self, pos):
+        pass
+
+    @staticmethod
+    def set(value):
+        for w in WIDGETS:
+            if isinstance(w, Radio):
+                w.selected = w.value == value
 
 
 def fxr_tab():
@@ -431,6 +513,7 @@ def fxr_tab():
     x = 20
     y = 50
     randomisers = [
+        "reset",
         "explosion",
         "hurt",
         "jump",
@@ -447,13 +530,28 @@ def fxr_tab():
         y += 40
         WIDGETS.append(button)
 
+    WIDGETS.extend([
+        Radio('Square', (200, 50), 0),
+        Radio('Saw', (320, 50), 1),
+        Radio('Sine', (440, 50), 2),
+        Radio('Noise', (560, 50), 3),
+    ])
+
+    def change_wave(value):
+        wave = pyfxr.WaveType(value)
+        sfx.wave_type = wave
+        playfx()
+
+    Radio.on_change = staticmethod(change_wave)
+    Radio.set(0)
+
     x = 190
-    y = 50
+    y = 80
     for param in params:
         WIDGETS.append(Slider(param, Rect(x, y, 150, 40)))
         y += 60
         if y > 500:
-            y = 50
+            y = 80
             x += 170
 
 def tabs():
