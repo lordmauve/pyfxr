@@ -396,8 +396,20 @@ def clamp(v, min, max):
 def fxr_tab():
     WIDGETS.clear()
     tabs()
-    WIDGETS.append(Slider('base_freq', Rect(20, 50, 150, 40)))
-    WIDGETS.append(Slider('freq_ramp', Rect(20, 90, 150, 40)))
+
+    params = [
+        k
+        for k, v in vars(pyfxr.SFX).items()
+        if isinstance(v, pyfxr.FloatParam)
+    ]
+    x = 20
+    y = 50
+    for param in params:
+        WIDGETS.append(Slider(param, Rect(x, y, 150, 40)))
+        y += 40
+        if y > 500:
+            y = 50
+            x += 170
 
 def tabs():
     WIDGETS.append(
