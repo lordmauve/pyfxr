@@ -80,7 +80,7 @@ def draw():
 
 
 class Button:
-    def __init__(self, rect, color, radius=5):
+    def __init__(self, rect, color=WHITE_KEY, radius=5):
         self.rect = rect
         self.color = color
         self.radius = radius
@@ -134,11 +134,10 @@ class Key(Button):
 
 class Label(Button):
     def __init__(self, text, pos, color='black', align='left'):
-        self.color = color
+        super().__init__(Rect(-1, -1, 0, 0), color)
         self.align = align
         self.surf = None
         self._text = text
-        self.rect = Rect(-1, -1, 0, 0)
         self.pos = pos
 
     @property
@@ -377,12 +376,16 @@ class Slider:
     def on_release(self, pos):
         self.on_drag(pos)
         setattr(sfx, self.param_name, round(self.value, 2))
-        print(f"sfx = {sfx!r}")
-        s = pygame.mixer.Sound(
-            buffer=sfx.build()
-        )
-        s.set_volume(0.5)
-        s.play()
+        playfx()
+
+
+def playfx():
+    print(f"sfx = {sfx!r}")
+    s = pygame.mixer.Sound(
+        buffer=sfx.build()
+    )
+    s.set_volume(0.5)
+    s.play()
 
 
 def clamp(v, min, max):
@@ -391,6 +394,28 @@ def clamp(v, min, max):
     elif v > max:
         return max
     return v
+
+
+class TextButton(Button):
+    def draw(self):
+        super().draw()
+        x, y = self.rect.center
+        text(self.label, (x, y - 8), align="center")
+
+
+class Randomiser(TextButton):
+    def __init__(self, func, rect):
+        super().__init__(rect)
+        self.func = self.label = func
+
+    def on_click(self, pos):
+        global sfx
+        print(f"random_{self.func} = {self.func}()")
+        sfx = getattr(pyfxr, self.func)()
+        for w in WIDGETS:
+            if isinstance(w, Slider):
+                w.value = getattr(sfx, w.param_name)
+        playfx()
 
 
 def fxr_tab():
@@ -402,11 +427,31 @@ def fxr_tab():
         for k, v in vars(pyfxr.SFX).items()
         if isinstance(v, pyfxr.FloatParam)
     ]
+
     x = 20
+    y = 50
+    randomisers = [
+        "explosion",
+        "hurt",
+        "jump",
+        "pickup",
+        "powerup",
+        "laser",
+        "select",
+    ]
+    for func in randomisers:
+        button = Randomiser(
+            func,
+            Rect(x, y, 150, 30),
+        )
+        y += 40
+        WIDGETS.append(button)
+
+    x = 190
     y = 50
     for param in params:
         WIDGETS.append(Slider(param, Rect(x, y, 150, 40)))
-        y += 40
+        y += 60
         if y > 500:
             y = 50
             x += 170
