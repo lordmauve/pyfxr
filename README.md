@@ -64,3 +64,5 @@ pip install pyfxr[gui]
 Then you can run the GUI by running `pyfxr`.
 
 ![Screenshot](docs/_static/keyboard.png)
+
+![Screenshot](docs/_static/fxr.png)
