@@ -53,6 +53,8 @@ Changes
 0.3.0
 '''''
 
+* New: GUI to explore :class:`SFX` parameters
+* New: some parameters for SFX require positive numbers
 * New: :func:`chord` for combining sounds
 * New: :func:`simple_chord` for generating harmonic chords from chord names
 
