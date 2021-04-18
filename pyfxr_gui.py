@@ -308,9 +308,104 @@ def make_waves():
     WIDGETS.append(Label("Example Waveforms", (30, 40)))
 
 
-WIDGETS.append(Keyboard())
-make_waves()
+def tones_tab():
+    WIDGETS.clear()
+    tabs()
+    WIDGETS.append(Keyboard())
+    make_waves()
 
+
+sfx = pyfxr.SFX()
+
+
+class Slider:
+    def __init__(self, param, rect):
+        self.rect = rect
+        self.param_name = param
+        self.label = param
+        self.param = pyfxr.SFX.__dict__[param]
+        self.value = self.param.default
+
+    def draw(self):
+        text(
+            f"{self.label}: {round(self.value, 2)}",
+            (self.rect.left, self.rect.top)
+        )
+        rounded_rect(
+            WHITE_KEY,
+            Rect(
+                self.rect.left,
+                self.rect.top + 25,
+                self.rect.width,
+                5
+            )
+        )
+        rounded_rect(
+            WHITE_KEY,
+            self.slider_rect(),
+        )
+
+    def slider_rect(self):
+        return Rect(
+            self.rect.left + self.value * (self.rect.width - 16),
+            self.rect.top + 15,
+            16,
+            24
+        )
+
+    def on_click(self, pos):
+        slider = self.slider_rect()
+        if slider.collidepoint(pos):
+            x, y = pos
+            self.drag_offset = x - slider.left
+        else:
+            self.drag_offset = None
+
+    def on_drag(self, pos):
+        if self.drag_offset is None:
+            return
+
+        x, y = pos
+        slider_newx = clamp(
+            x - self.drag_offset,
+            self.rect.left,
+            self.rect.right - 16
+        )
+
+        self.value = (slider_newx - self.rect.left) / (self.rect.width - 16)
+
+    def on_release(self, pos):
+        self.on_drag(pos)
+        setattr(sfx, self.param_name, round(self.value, 2))
+        print(f"sfx = {sfx!r}")
+        s = pygame.mixer.Sound(
+            buffer=sfx.build()
+        )
+        s.set_volume(0.5)
+        s.play()
+
+
+def clamp(v, min, max):
+    if v < min:
+        return min
+    elif v > max:
+        return max
+    return v
+
+
+def fxr_tab():
+    WIDGETS.clear()
+    tabs()
+    WIDGETS.append(Slider('base_freq', Rect(20, 50, 150, 40)))
+    WIDGETS.append(Slider('freq_ramp', Rect(20, 90, 150, 40)))
+
+def tabs():
+    WIDGETS.append(
+        Label("F1 = tones     F2 = sfx", (20, 10))
+    )
+
+
+fxr_tab()
 
 def widget_at(pos, widgets=None):
     for b in reversed(widgets or WIDGETS):
@@ -351,6 +446,11 @@ def main():
                 if clicked:
                     clicked.on_release(ev.pos)
                     clicked = None
+        elif ev.type == pygame.KEYDOWN:
+            if ev.key == pygame.K_F1:
+                tones_tab()
+            elif ev.key == pygame.K_F2:
+                fxr_tab()
 
 
 def play():
