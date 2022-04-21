@@ -50,10 +50,8 @@ jobs:
       env:
         CIBW_SKIP: pp27* cp27* cp35*
         CIBW_TEST_COMMAND: pytest {project}
-        CIBW_BEFORE_TEST: pip install -r requirements-dev.txt
+        CIBW_BEFORE_TEST: pip install --prefer-binary -r requirements-dev.txt
         CIBW_BUILD_VERBOSITY: 0
-        CIBW_MANYLINUX_X86_64_IMAGE: manylinux1
-        CIBW_MANYLINUX_I686_IMAGE: manylinux1
 
     - name: Upload wheels
       uses: actions/upload-artifact@v2
