@@ -5,6 +5,8 @@ on:
     # Run at 06:00 every Monday
     - cron: '0 6 * * 1'
   workflow_dispatch:
+  push:
+    branches: [gha-backfill]
 
 jobs:
   build_wheels:
