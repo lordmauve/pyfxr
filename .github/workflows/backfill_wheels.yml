@@ -47,7 +47,7 @@ jobs:
           urllib.request.urlretrieve(sdist_url, sdist_filename)
         shell: python
       - name: Build wheel
-        run: python -m cibuildwheel --output-dir wheelhouse pyfxr-*.tar.gz
+        run: python -m cibuildwheel --output-dir wheelhouse pyfxr-${{ matrix.package_version }}.tar.gz
         env:
           CIBW_SKIP: pp27* cp27* cp35*
           CIBW_BUILD_VERBOSITY: 0
