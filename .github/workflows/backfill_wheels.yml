@@ -2,11 +2,9 @@ name: Backfill wheels
 
 on:
   schedule:
-    # Run at 06:00 every Monday
-    - cron: '0 6 * * 1'
+    # Run at 06:00 on the 18th of the month
+    - cron: '0 6 18 * *'
   workflow_dispatch:
-  push:
-    branches: [gha-backfill]
 
 jobs:
   build_wheels:
