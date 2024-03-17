@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        package_version: ['0.1.0', '0.2.0', '0.3.0']
+        package_version: ['0.2.0', '0.3.0']
     steps:
       - name: Set up Python
         uses: actions/setup-python@v5
