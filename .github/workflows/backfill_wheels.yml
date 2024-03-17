@@ -52,7 +52,7 @@ jobs:
           CIBW_SKIP: pp27* cp27* cp35*
           CIBW_BUILD_VERBOSITY: 0
       - name: Upload packages with twine
-        run: twine upload wheelhouse/*.whl
+        run: twine upload --skip-existing wheelhouse/*.whl
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.pypi_password }}
