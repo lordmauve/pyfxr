@@ -23,7 +23,8 @@ jobs:
       - name: Create directory for downloads
         run: mkdir sdists
       - name: Download sdist from PyPI
-        run: pip download --no-binary :all: --no-deps pyfxr==${{ matrix.package_version }} --dest=sdists
+        run: |
+          pip download --no-binary :all: --no-deps pyfxr==${{ matrix.package_version }} --dest=sdists
       - name: Build wheel
         run: python -m cibuildwheel --output-dir wheelhouse sdists/*.tar.gz
         env:
