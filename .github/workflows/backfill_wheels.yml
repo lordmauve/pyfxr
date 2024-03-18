@@ -5,6 +5,9 @@ on:
     # Run at 06:00 on the 18th of the month
     - cron: '0 6 18 * *'
   workflow_dispatch:
+  push:
+    branches:
+      - aarch64
 
 jobs:
   build_wheels:
@@ -12,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-13, macos-14, windows-latest]
+        os: [ubuntu-latest] # macos-13, macos-14, windows-latest]
         package_version: ['0.2.0', '0.3.0']
     steps:
       - name: Set up Python
@@ -21,6 +24,13 @@ jobs:
           python-version: '3.11'
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel twine
+
+      - name: Set up QEMU in order to build non-native wheels on Linux
+        if: runner.os == 'Linux'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+
       - name: Download sdist from PyPI
         run: |
           import json
@@ -48,6 +58,7 @@ jobs:
         run: python -m cibuildwheel --output-dir wheelhouse pyfxr-${{ matrix.package_version }}.tar.gz
         env:
           CIBW_BUILD_VERBOSITY: 0
+          CIBW_ARCHS_LINUX: auto aarch64
       - name: Upload packages with twine
         run: twine upload --skip-existing wheelhouse/*.whl
         env:
