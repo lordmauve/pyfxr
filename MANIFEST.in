@@ -1,3 +1,5 @@
 include README.md LICENSE
 global-include *.pyx
 global-include *.pxd
+global-include *.pyi
+include pyfxr/py.typed
