@@ -5,8 +5,8 @@ from functools import lru_cache
 from typing import Tuple, Union, Optional, Dict
 from enum import Enum
 
-import _pyfxr
-from _pyfxr import SoundBuffer, Wavetable, sfx, CachedSound, chord
+from . import _pyfxr
+from ._pyfxr import SoundBuffer, Wavetable, sfx, CachedSound, chord
 
 __all__ = (
     'SAMPLE_RATE',

@@ -1,10 +1,10 @@
 *.pyc
 *.swp
-/_pyfxr.html
-/_pyfxr.c
+/pyfxr/_pyfxr.html
+/pyfxr/_pyfxr.c
 /build/
 /dist/
 /venv/
 /docs/_build/
 /pyfxr.egg-info
-/_pyfxr.*.so
+/pyfxr/_pyfxr.*.so
