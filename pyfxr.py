@@ -2,7 +2,7 @@ import re
 import math
 import random
 from functools import lru_cache
-from typing import Tuple, Union, Optional, Dict
+from typing import Tuple, Union, Optional, Dict, TypeAlias
 from enum import Enum
 
 import _pyfxr
@@ -42,6 +42,21 @@ A4 = 440.0
 NOTE_VALUE = dict(C=-9, D=-7, E=-5, F=-4, G=-2, A=0, B=2)
 
 TWELFTH_ROOT = math.pow(2, (1 / 12))
+
+# Seed type for RNG functions. Compatible with ``random.Random`` seeds from
+# Python 3.11 onward. ``None`` indicates that the global ``random._inst``
+# should be used instead of creating a new instance.
+Seed: TypeAlias = Optional[Union[int, float, str, bytes, bytearray]]
+
+
+def _get_rng(seed: Seed = None) -> random.Random:
+    """Return a random generator for SFX helpers.
+
+    :param seed: Optional seed for deterministic random numbers.
+    :returns: ``random.Random(seed)`` if *seed* is provided, otherwise
+              :data:`random._inst`.
+    """
+    return random.Random(seed) if seed is not None else random._inst
 
 
 @lru_cache()
@@ -438,158 +453,193 @@ class SFX(CachedSound):
         return self
 
 
-def one_in(n: int) -> bool:
-    """Return True with odds of 1 in n."""
-    return not random.randint(0, n)
+def one_in(n: int, *, rng: random.Random = random._inst) -> bool:
+    """Return ``True`` with odds of 1 in ``n``.
+
+    :param rng: Random number generator to use.
+    """
+    return not rng.randint(0, n)
 
 
 def _mksfx(params: Dict[str, float]) -> SFX:
-    """Round the parameters and construct an SFX.
+    """Round the parameters and construct an :class:`SFX`.
 
-    Rounding is helpful because it makes the repr shorter and more
-    human-friendly.
-
+    Parameters ``rng`` and ``seed`` are ignored so callers can simply pass
+    ``locals()``.
     """
+    params = {
+        k: v
+        for k, v in params.items()
+        if k not in {"rng", "seed"}
+    }
     return SFX(**{k: round(v, 3) for k, v in params.items()})
 
 
-def pickup() -> SFX:
-    """Generate a random bell sound, like picking up a coin."""
-    base_freq = random.uniform(0.4, 0.9)
+def pickup(seed: Seed = None) -> SFX:
+    """Generate a random bell sound, like picking up a coin.
+
+    :param seed: Optional seed to reproduce the sound.
+    """
+    rng = _get_rng(seed)
+    base_freq = rng.uniform(0.4, 0.9)
     env_attack = 0.0
-    env_sustain = random.uniform(0.0, 0.1)
-    env_decay = random.uniform(0.1, 0.5)
-    env_punch = random.uniform(0.3, 0.6)
-    if one_in(2):
-        arp_mod = random.uniform(0.2, 0.6)
+    env_sustain = rng.uniform(0.0, 0.1)
+    env_decay = rng.uniform(0.1, 0.5)
+    env_punch = rng.uniform(0.3, 0.6)
+    if one_in(2, rng=rng):
+        arp_mod = rng.uniform(0.2, 0.6)
     return _mksfx(locals())
 
 
-def laser() -> SFX:
-    """Generate a random laser sound."""
-    wave_type = random.choice((0, 0, 1, 1, 2))
-    base_freq = random.uniform(0.5, 1.0)
-    freq_limit = max(0.2, base_freq - random.uniform(0.2, 0.8))
-    freq_ramp = random.uniform(-0.35, -0.15)
-    if one_in(3):
-        base_freq = random.uniform(0.3, 0.9)
-        freq_limit = random.uniform(0.0, 0.1)
-        freq_ramp = random.uniform(-0.65, -0.35)
-    if one_in(2):
-        duty = random.uniform(0.0, 0.5)
-        duty_ramp = random.uniform(0.0, 0.2)
+def laser(seed: Seed = None) -> SFX:
+    """Generate a random laser sound.
+
+    :param seed: Optional seed to reproduce the sound.
+    """
+    rng = _get_rng(seed)
+    wave_type = rng.choice((0, 0, 1, 1, 2))
+    base_freq = rng.uniform(0.5, 1.0)
+    freq_limit = max(0.2, base_freq - rng.uniform(0.2, 0.8))
+    freq_ramp = rng.uniform(-0.35, -0.15)
+    if one_in(3, rng=rng):
+        base_freq = rng.uniform(0.3, 0.9)
+        freq_limit = rng.uniform(0.0, 0.1)
+        freq_ramp = rng.uniform(-0.65, -0.35)
+    if one_in(2, rng=rng):
+        duty = rng.uniform(0.0, 0.5)
+        duty_ramp = rng.uniform(0.0, 0.2)
     else:
-        duty = random.uniform(0.4, 0.9)
-        duty_ramp = random.uniform(-0.7, 0.0)
+        duty = rng.uniform(0.4, 0.9)
+        duty_ramp = rng.uniform(-0.7, 0.0)
     env_attack = 0.0
-    env_sustain = random.uniform(0.1, 0.3)
-    env_decay = random.uniform(0.0, 0.4)
-    if one_in(2):
-        env_punch = random.uniform(0.0, 0.3)
-    if one_in(3):
-        pha_offset = random.uniform(0.0, 0.2)
-        pha_ramp = random.uniform(-0.2, 0.0)
-    if one_in(2):
-        hpf_freq = random.uniform(0.0, 0.3)
+    env_sustain = rng.uniform(0.1, 0.3)
+    env_decay = rng.uniform(0.0, 0.4)
+    if one_in(2, rng=rng):
+        env_punch = rng.uniform(0.0, 0.3)
+    if one_in(3, rng=rng):
+        pha_offset = rng.uniform(0.0, 0.2)
+        pha_ramp = rng.uniform(-0.2, 0.0)
+    if one_in(2, rng=rng):
+        hpf_freq = rng.uniform(0.0, 0.3)
 
     return _mksfx(locals())
 
 
-def explosion() -> SFX:
-    """Generate a random explosion sound."""
+def explosion(seed: Seed = None) -> SFX:
+    """Generate a random explosion sound.
+
+    :param seed: Optional seed to reproduce the sound.
+    """
+    rng = _get_rng(seed)
     wave_type = 3
-    if one_in(2):
-        base_freq = random.uniform(0.1, 0.5) ** 2
-        freq_ramp = random.uniform(-0.1, 0.3)
+    if one_in(2, rng=rng):
+        base_freq = rng.uniform(0.1, 0.5) ** 2
+        freq_ramp = rng.uniform(-0.1, 0.3)
     else:
-        base_freq = random.uniform(0.2, 0.7) ** 2
-        freq_ramp = random.uniform(-0.4, -0.2)
-    if one_in(5):
+        base_freq = rng.uniform(0.2, 0.7) ** 2
+        freq_ramp = rng.uniform(-0.4, -0.2)
+    if one_in(5, rng=rng):
         freq_ramp = 0
-    if one_in(3):
-        repeat_speed = random.uniform(0.3, 0.8)
+    if one_in(3, rng=rng):
+        repeat_speed = rng.uniform(0.3, 0.8)
     env_attack = 0.0
-    env_sustain = random.uniform(0.1, 0.4)
-    env_decay = random.uniform(0.0, 0.5)
-    if one_in(2):
-        pha_offset = random.uniform(-0.3, 0.6)
-        pha_ramp = random.uniform(-0.3, 0)
-    env_punch = random.uniform(0.2, 0.6)
-    if one_in(2):
-        vib_strength = random.uniform(0.0, 0.7)
-        vib_speed = random.uniform(0.0, 0.6)
-    if one_in(3):
-        arp_speed = random.uniform(0.6, 0.9)
-        arp_mod = random.uniform(-0.8, 0.8)
+    env_sustain = rng.uniform(0.1, 0.4)
+    env_decay = rng.uniform(0.0, 0.5)
+    if one_in(2, rng=rng):
+        pha_offset = rng.uniform(-0.3, 0.6)
+        pha_ramp = rng.uniform(-0.3, 0)
+    env_punch = rng.uniform(0.2, 0.6)
+    if one_in(2, rng=rng):
+        vib_strength = rng.uniform(0.0, 0.7)
+        vib_speed = rng.uniform(0.0, 0.6)
+    if one_in(3, rng=rng):
+        arp_speed = rng.uniform(0.6, 0.9)
+        arp_mod = rng.uniform(-0.8, 0.8)
 
     return _mksfx(locals())
 
 
-def powerup() -> SFX:
-    """Generate a random chime, like receiving a power-up."""
-    if one_in(2):
+def powerup(seed: Seed = None) -> SFX:
+    """Generate a random chime, like receiving a power-up.
+
+    :param seed: Optional seed to reproduce the sound.
+    """
+    rng = _get_rng(seed)
+    if one_in(2, rng=rng):
         wave_type = 1
     else:
-        duty = random.uniform(0.0, 0.6)
+        duty = rng.uniform(0.0, 0.6)
 
-    if one_in(2):
-        base_freq = random.uniform(0.2, 0.5)
-        freq_ramp = random.uniform(0.1, 0.5)
-        repeat_speed = random.uniform(0.4, 0.8)
+    if one_in(2, rng=rng):
+        base_freq = rng.uniform(0.2, 0.5)
+        freq_ramp = rng.uniform(0.1, 0.5)
+        repeat_speed = rng.uniform(0.4, 0.8)
     else:
-        base_freq = random.uniform(0.2, 0.5)
-        freq_ramp = random.uniform(0.05, 0.25)
-        if one_in(2):
-            vib_strength = random.uniform(0.0, 0.7)
-            vib_speed = random.uniform(0.0, 0.6)
+        base_freq = rng.uniform(0.2, 0.5)
+        freq_ramp = rng.uniform(0.05, 0.25)
+        if one_in(2, rng=rng):
+            vib_strength = rng.uniform(0.0, 0.7)
+            vib_speed = rng.uniform(0.0, 0.6)
     env_attack = 0.0
-    env_sustain = random.uniform(0.0, 0.4)
-    env_decay = random.uniform(0.1, 0.5)
+    env_sustain = rng.uniform(0.0, 0.4)
+    env_decay = rng.uniform(0.1, 0.5)
 
     return _mksfx(locals())
 
 
-def hurt() -> SFX:
-    """Generate a random impact sound, like a character being hurt."""
-    wave_type = random.choice([0, 1, 3])
+def hurt(seed: Seed = None) -> SFX:
+    """Generate a random impact sound, like a character being hurt.
+
+    :param seed: Optional seed to reproduce the sound.
+    """
+    rng = _get_rng(seed)
+    wave_type = rng.choice([0, 1, 3])
     if wave_type == 0:
-        duty = random.uniform(0, 0.6)
-    base_freq = random.uniform(0.2, 0.8)
-    freq_ramp = random.uniform(-0.7, -0.3)
+        duty = rng.uniform(0, 0.6)
+    base_freq = rng.uniform(0.2, 0.8)
+    freq_ramp = rng.uniform(-0.7, -0.3)
     env_attack = 0.0
-    env_sustain = random.uniform(0.0, 0.1)
-    env_decay = random.uniform(0.1, 0.3)
-    if one_in(2):
-        hpf_freq = random.uniform(0.0, 0.3)
+    env_sustain = rng.uniform(0.0, 0.1)
+    env_decay = rng.uniform(0.1, 0.3)
+    if one_in(2, rng=rng):
+        hpf_freq = rng.uniform(0.0, 0.3)
 
     return _mksfx(locals())
 
 
-def jump() -> SFX:
-    """Generate a random jump sound."""
+def jump(seed: Seed = None) -> SFX:
+    """Generate a random jump sound.
+
+    :param seed: Optional seed to reproduce the sound.
+    """
+    rng = _get_rng(seed)
     wave_type = 0
-    duty = random.uniform(0.0, 0.6)
-    base_freq = random.uniform(0.3, 0.6)
-    freq_ramp = random.uniform(0.1, 0.3)
+    duty = rng.uniform(0.0, 0.6)
+    base_freq = rng.uniform(0.3, 0.6)
+    freq_ramp = rng.uniform(0.1, 0.3)
     env_attack = 0.0
-    env_sustain = random.uniform(0.1, 0.4)
-    env_decay = random.uniform(0.1, 0.3)
-    if one_in(2):
-        hpf_freq = random.uniform(0.0, 0.3)
-    if one_in(2):
-        lpf_freq = random.uniform(0.4, 1.0)
+    env_sustain = rng.uniform(0.1, 0.4)
+    env_decay = rng.uniform(0.1, 0.3)
+    if one_in(2, rng=rng):
+        hpf_freq = rng.uniform(0.0, 0.3)
+    if one_in(2, rng=rng):
+        lpf_freq = rng.uniform(0.4, 1.0)
 
     return _mksfx(locals())
 
 
-def select() -> SFX:
-    """Generate a random 'blip' noise, like selecting an option in a menu."""
-    wave_type = random.choice([0, 1])
+def select(seed: Seed = None) -> SFX:
+    """Generate a random 'blip' noise, like selecting an option in a menu.
+
+    :param seed: Optional seed to reproduce the sound.
+    """
+    rng = _get_rng(seed)
+    wave_type = rng.choice([0, 1])
     if wave_type == 0:
-        duty = random.uniform(0.0, 0.6)
-    base_freq = random.uniform(0.2, 0.6)
+        duty = rng.uniform(0.0, 0.6)
+    base_freq = rng.uniform(0.2, 0.6)
     env_attack = 0.0
-    env_sustain = random.uniform(0.1, 0.2)
-    env_decay = random.uniform(0.0, 0.2)
+    env_sustain = rng.uniform(0.1, 0.2)
+    env_decay = rng.uniform(0.0, 0.2)
     hpf_freq = 0.1
     return _mksfx(locals())
