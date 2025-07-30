@@ -20,4 +20,4 @@ jobs:
           uv venv
           uv pip install . -r requirements-dev.txt
       - name: Run tests
-        run: uv run pytest -q
+        run: .venv/bin/pytest -q
