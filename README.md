@@ -66,3 +66,15 @@ Then you can run the GUI by running `pyfxr`.
 ![Screenshot](docs/_static/keyboard.png)
 
 ![Screenshot](docs/_static/fxr.png)
+
+## Building & Testing
+
+Create a virtual environment and install the project alongside the development
+dependencies:
+
+```
+python -m venv .venv
+source .venv/bin/activate
+pip install . -r requirements-dev.txt
+pytest
+```
