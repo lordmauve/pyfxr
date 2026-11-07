@@ -492,7 +492,7 @@ def sfx(
 
         # reset repeats
         rep_time = 0
-        rep_limit = <int> ((1.0 - p_repeat_speed) ** 2.0) * 20000 + 32
+        rep_limit = <int> (((1.0 - p_repeat_speed) ** 2.0) * 20000 + 32)
         if p_repeat_speed == 0.0:
             rep_limit = 0
 
