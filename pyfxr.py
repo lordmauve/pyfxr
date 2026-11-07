@@ -1,6 +1,8 @@
 import re
 import math
 import random
+import struct
+import io
 from functools import lru_cache
 from typing import Tuple, Union, Optional, Dict, TypeAlias
 from enum import Enum
@@ -522,8 +524,10 @@ class SFXR(SFX):
 
     __slots__ = '_params'
 
-    def mutate(self, seed: Seed = None) -> DSFXR:
+    def mutate(self, seed: Seed = None) -> SFXR:
         """Mutate the sound parameters
+
+        :param seed: Optional seed to reproduce the sound.
         """
         rng = _get_rng(seed)
         bpr = lambda: rng.uniform(-0.05,0.05)
@@ -537,6 +541,63 @@ class SFXR(SFX):
 
         return _mksfxr(new_params)
 
+def _parse_sfxr_binary(_buffer: Buffer) -> Dict[str, float]:
+    """Parse sfxr binary into a dictionary of params
+    Parameters not supported by SFXR class are prefixed with _
+
+    :param _buffer: a bytes-like object from an sfxr file
+    """
+
+    _version = struct.unpack('i', _buffer[:4])[0]; _buffer = _buffer[4:]
+
+    _valid_versions = {100,101,102}
+    if _version not in _valid_versions:
+        raise ValueError(f'Version must be one of {_valid_versions} (got {_version})')
+
+    wave_type = struct.unpack('i', _buffer[:4])[0]; _buffer = _buffer[4:]
+
+    sound_vol = 0.5
+    if _version == 102:
+        sound_vol = struct.unpack('f', _buffer[:4])[0]; _buffer = _buffer[4:]
+
+    base_freq, freq_limit, freq_ramp = struct.unpack('fff', _buffer[:12]); _buffer = _buffer[12:]
+    if _version >= 101:
+         freq_dramp = struct.unpack('f', _buffer[:4])[0]; _buffer = _buffer[4:]
+
+    duty, duty_ramp = struct.unpack('ff', _buffer[:8]); _buffer = _buffer[8:]
+
+    vib_strength, vib_speed, vib_delay = struct.unpack('fff', _buffer[:12]); _buffer = _buffer[12:
+]
+
+    env_attack, env_sustain, env_decay, env_punch = struct.unpack('ffff', _buffer[:16]); _buffer = _buffer[16:]
+
+    _filter_on = bool(_buffer[0]); _buffer = _buffer[1:]
+
+    lpf_resonance, lpf_freq, lpf_ramp = struct.unpack('fff', _buffer[:12]); _buffer = _buffer[12:]
+    hpf_freq, hpf_ramp = struct.unpack('ff', _buffer[:8]); _buffer = _buffer[8:]
+
+    pha_offset, pha_ramp = struct.unpack('ff', _buffer[:8]); _buffer = _buffer[8:]
+
+    repeat_speed = struct.unpack('f', _buffer[:4])[0]; _buffer = _buffer[4:]
+
+    if _version >= 101:
+        arp_speed, arp_mod = struct.unpack('ff', _buffer[:8]); _buffer = _buffer[8:]
+
+    return locals()
+
+
+def load_sfxr(fp: io.BufferedIOBase) -> SFXR:
+    """Load an sfxr file.
+
+    :param fp: either a file object in binary mode or a path to the sfxr file
+    """
+    try:
+        raw = fp.read()
+    except AttributeError:
+        with open(fp, 'rb') as fp:
+            raw = fp.read()
+    params = _parse_sfxr_binary(raw)
+    return _mksfxr(params)
 
 def randomize(seed: Seed = None) -> SFXR:
     """Generate a random sound
@@ -622,9 +683,9 @@ def _mksfxr(params: Dict[str, float]) -> SFXR:
     params = {
         k: v
         for k, v in params.items()
-        if k not in {"rng", "seed", "bpr"}
+        if k[0] != '_' and k not in {"rng", "seed", "bpr"}
     }
-    return SFXR(**{k: v for k, v in params.items()})
+    return SFXR(**params)
 
 
 
