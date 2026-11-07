@@ -459,6 +459,12 @@ class SFXR(SFX):
     parameter negative (except freq_limit, which does not mutate).
     """
 
+    #: The sound volume
+    sound_vol: float = FloatParam(0.5)
+
+    #: A scaling constant to prevent clipping
+    max_vol: float = FloatParam(0.05)
+
     #: The initial frequency of the sound
     base_freq: float = FloatParam(0.3, bipolar=True)
     #: The minimum frequency of the sound
@@ -524,7 +530,7 @@ class SFXR(SFX):
 
         new_params = self.as_dict()
         for k,v in new_params.items():
-            if k in {'freq_limit'}:
+            if k in {'freq_limit', 'max_vol', 'sound_vol', 'wave_type'}:
                 continue
             if one_in(2, rng=rng):
                 new_params[k] += bpr()
