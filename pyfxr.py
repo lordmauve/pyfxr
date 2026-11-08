@@ -1,6 +1,8 @@
 import re
 import math
 import random
+import struct
+import io
 from functools import lru_cache
 from typing import Tuple, Union, Optional, Dict, TypeAlias
 from enum import Enum
@@ -643,3 +645,218 @@ def select(seed: Seed = None) -> SFX:
     env_decay = rng.uniform(0.0, 0.2)
     hpf_freq = 0.1
     return _mksfx(locals())
+
+
+class SFXR(SFX):
+    """Build a sound effect using a set of parameters.
+    Accepts the same bipolar parameter values as sfxr.
+    sfxr does not enforce bounds of parameters, and mutate can make any
+    parameter negative (except freq_limit, which does not mutate).
+    """
+
+    #: The sound volume
+    sound_vol: float = FloatParam(0.5)
+
+    #: A scaling constant to prevent clipping
+    max_vol: float = FloatParam(0.05)
+
+    #: The initial frequency of the sound
+    base_freq: float = FloatParam(0.3, bipolar=True)
+    #: The minimum frequency of the sound
+    freq_limit: float = FloatParam(0.0)
+    #: The rate of change of the frequency of the sound
+    freq_ramp: float = FloatParam(0.0, bipolar=True)
+    #: The acceleration of the change in frequency of the sound
+    freq_dramp: float = FloatParam(0.0, bipolar=True)
+
+    #: If using square wave, the duty cycle of the waveform
+    duty: float = FloatParam(0.0, bipolar=True)
+    #: The rate of change of the square wave duty cycle
+    duty_ramp: float = FloatParam(0.0, bipolar=True)
+
+    #: Vibrato strength
+    vib_strength: float = FloatParam(0.0, bipolar=True)
+    #: Vibrato speed
+    vib_speed: float = FloatParam(0.0, bipolar=True)
+    #: Vibrato delay
+    vib_delay: float = FloatParam(0.0, bipolar=True)
+
+    #: The duration of the attack phase of the ADSR envelope
+    env_attack: float = FloatParam(0.0, bipolar=True)
+    #: The duration of the sustain phase of the ADSR envelope
+    env_sustain: float = FloatParam(0.3, bipolar=True)
+    #: The duration of the decay phase of the ADSR envelope
+    env_decay: float = FloatParam(0.4, bipolar=True)
+    #: Causes the volume to decrease during the sustain phase of the envelope
+    env_punch: float = FloatParam(0.0, bipolar=True)
+
+    #: Low-pass filter resonance
+    lpf_resonance: float = FloatParam(0.0, bipolar=True)
+    #: Low-pass filter cutoff frequency
+    lpf_freq: float = FloatParam(1.0, bipolar=True)
+    #: Low-pass filter cutoff ramp
+    lpf_ramp: float = FloatParam(0.0, bipolar=True)
+
+    #: High-pass filter frequency
+    hpf_freq: float = FloatParam(0.0, bipolar=True)
+    #: High-pass filter ramp
+    hpf_ramp: float = FloatParam(0.0, bipolar=True)
+
+    #: Phaser offset
+    pha_offset: float = FloatParam(0.0, bipolar=True)
+    #: Phaser ramp
+    pha_ramp: float = FloatParam(0.0, bipolar=True)
+
+    #: Repeat speed
+    repeat_speed: float = FloatParam(0.0, bipolar=True)
+
+    #: Arpeggio speed
+    arp_speed: float = FloatParam(0.0, bipolar=True)
+    #: Arpeggio mod
+    arp_mod: float = FloatParam(0.0, bipolar=True)
+
+    __slots__ = '_params'
+
+    def mutate(self, seed: Seed = None) -> SFXR:
+        """Mutate the sound parameters
+
+        :param seed: Optional seed to reproduce the sound.
+        """
+        rng = _get_rng(seed)
+        bpr = lambda: rng.uniform(-0.05,0.05)
+
+        new_params = self.as_dict()
+        for k,v in new_params.items():
+            if k in {'freq_limit', 'max_vol', 'sound_vol', 'wave_type'}:
+                continue
+            if one_in(2, rng=rng):
+                new_params[k] += bpr()
+
+        return _mksfxr(new_params)
+
+
+def _mksfxr(params: Dict[str, float]) -> SFXR:
+    """Round the parameters and construct an :class:`SFX`.
+
+    Parameters ``rng`` and ``seed`` are ignored so callers can simply pass
+    ``locals()``.
+    """
+    params = {
+        k: v
+        for k, v in params.items()
+        if k[0] != '_' and k not in {"rng", "seed", "bpr"}
+    }
+    return SFXR(**params)
+
+
+def _parse_sfxr_binary(_buffer: Buffer) -> Dict[str, float]:
+    """Parse sfxr binary into a dictionary of params
+    Parameters not supported by SFXR class are prefixed with _
+
+    :param _buffer: a bytes-like object from an sfxr file
+    """
+
+    _version = struct.unpack('i', _buffer[:4])[0]; _buffer = _buffer[4:]
+
+    _valid_versions = {100,101,102}
+    if _version not in _valid_versions:
+        raise ValueError(f'Version must be one of {_valid_versions} (got {_version})')
+
+    wave_type = struct.unpack('i', _buffer[:4])[0]; _buffer = _buffer[4:]
+
+    sound_vol = 0.5
+    if _version == 102:
+        sound_vol = struct.unpack('f', _buffer[:4])[0]; _buffer = _buffer[4:]
+
+    base_freq, freq_limit, freq_ramp = struct.unpack('fff', _buffer[:12]); _buffer = _buffer[12:]
+    if _version >= 101:
+         freq_dramp = struct.unpack('f', _buffer[:4])[0]; _buffer = _buffer[4:]
+
+    duty, duty_ramp = struct.unpack('ff', _buffer[:8]); _buffer = _buffer[8:]
+
+    vib_strength, vib_speed, vib_delay = struct.unpack('fff', _buffer[:12]); _buffer = _buffer[12:
+]
+
+    env_attack, env_sustain, env_decay, env_punch = struct.unpack('ffff', _buffer[:16]); _buffer = _buffer[16:]
+
+    _filter_on = bool(_buffer[0]); _buffer = _buffer[1:]
+
+    lpf_resonance, lpf_freq, lpf_ramp = struct.unpack('fff', _buffer[:12]); _buffer = _buffer[12:]
+    hpf_freq, hpf_ramp = struct.unpack('ff', _buffer[:8]); _buffer = _buffer[8:]
+
+    pha_offset, pha_ramp = struct.unpack('ff', _buffer[:8]); _buffer = _buffer[8:]
+
+    repeat_speed = struct.unpack('f', _buffer[:4])[0]; _buffer = _buffer[4:]
+
+    if _version >= 101:
+        arp_speed, arp_mod = struct.unpack('ff', _buffer[:8]); _buffer = _buffer[8:]
+
+    return locals()
+
+
+def load_sfxr(fp: io.BufferedIOBase) -> SFXR:
+    """Load an sfxr file.
+
+    :param fp: either a file object in binary mode or a path to the sfxr file
+    """
+    try:
+        raw = fp.read()
+    except AttributeError:
+        with open(fp, 'rb') as fp:
+            raw = fp.read()
+    params = _parse_sfxr_binary(raw)
+    return _mksfxr(params)
+
+def randomize(seed: Seed = None) -> SFXR:
+    """Generate a random sound
+
+    :param seed: Optional seed to reproduce the sound.
+    """
+    rng = _get_rng(seed)
+    bpr = lambda: rng.uniform(-1,1) #bipolar random value
+
+    base_freq = bpr()**2
+    if one_in(2, rng=rng):
+        base_freq = bpr()**3 + 0.5
+    freq_limit = 0
+    freq_ramp = bpr()**5
+    if base_freq < 0.7 and freq_ramp > 0.2:
+        freq_ramp *= -1;
+    if base_freq < 0.2 and freq_ramp < -0.05:
+        freq_ramp *= -1;
+
+    duty = bpr()
+    duty_ramp = bpr()**3
+
+    vib_strength = bpr()**3
+    vib_speed = bpr()
+    vib_delay = bpr()
+
+    env_attack = bpr()**3
+    env_sustain = bpr()**2
+    env_decay = bpr()
+    env_punch = rng.uniform(0,0.8)**2
+    if env_attack+env_sustain+env_decay < 0.2:
+        env_sustain += 0.2 + rng.uniform(0,0.3)
+        env_decay += 0.2 + rng.uniform(0,0.3)
+
+    lpf_resonance = bpr()
+    lpf_freq = 1 - rng.uniform(0,1)**3
+    lpf_ramp = bpr()**3
+    if lpf_freq < 0.1 and lpf_ramp < -0.05:
+        lpf_ramp *= -1
+
+    hpf_freq = rng.uniform(0,1)**5
+    hpf_ramp = bpr()**5
+
+    pha_offset = bpr()**3
+    pha_ramp = bpr()**3
+
+    repeat_speed = bpr()
+
+    arp_speed = bpr()
+    arp_mod = bpr()
+
+    return _mksfxr(locals())
+
+

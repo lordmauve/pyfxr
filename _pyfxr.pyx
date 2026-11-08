@@ -414,6 +414,8 @@ def sfx(
     float p_repeat_speed=0.0,
     float p_arp_speed=0.0,
     float p_arp_mod=0.0,
+    float p_sound_vol=0.5,
+    float p_max_vol=1,
 ):
     cdef int phase=0, period, env_stage, env_time, iphase, ipp
     cdef double fperiod, fmaxperiod, fslide, fdslide, arp_mod
@@ -492,7 +494,7 @@ def sfx(
 
         # reset repeats
         rep_time = 0
-        rep_limit = <int> ((1.0 - p_repeat_speed) ** 2.0) * 20000 + 32
+        rep_limit = <int> (((1.0 - p_repeat_speed) ** 2.0) * 20000 + 32)
         if p_repeat_speed == 0.0:
             rep_limit = 0
 
@@ -619,6 +621,7 @@ def sfx(
                 ssample += sample * env_vol
 
             ssample /= 8
+            ssample *= 2 * p_sound_vol * p_max_vol
             clamp(&ssample, -1.0, 1.0)
             s.samples[i] = samp(ssample)
     return s
